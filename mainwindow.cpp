@@ -4,32 +4,96 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+
 {
     ui->setupUi(this);
     //Кнопка добавления Архива
-    QToolButton *button = new QToolButton(this);
-    QPixmap pixmap(":/images/Images/Add_Icon.png"); //Иконка
-    button->setGeometry(30,20,70,70);
-    button->setIcon(pixmap);
-    button->setIconSize(QSize (32,32));
-    button->setIcon(pixmap.scaled(QSize (32,32),Qt::KeepAspectRatio,Qt::SmoothTransformation)); //Scale иконки
-    button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
-    button->setText("Добавить \nархив");
-    button->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 1px }" ); //Стили на кнопку
-    QObject::connect(button, &QToolButton::clicked, this, &MainWindow::AddbuttonClick); //Обработка нажатия на кнопку Добавления
-}
+    QToolButton *Addbutton = new QToolButton(this);
+    QPixmap pixAdd(":/images/Images/Add_Icon.png"); //Иконка
+    Addbutton->setGeometry(30,20,70,70);
+    Addbutton->setIcon(pixAdd);
+    Addbutton->setIconSize(QSize (32,32));
+    Addbutton->setIcon(pixAdd.scaled(QSize (32,32),Qt::KeepAspectRatio,Qt::SmoothTransformation)); //Scale иконки
+    Addbutton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
+    Addbutton->setText("Add");
+    Addbutton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
+    QObject::connect(Addbutton, &QToolButton::clicked, this, &MainWindow::AddbuttonClick); //Обработка нажатия на кнопку добавления
 
+    //Кнопка распаковки архива
+    QToolButton* extractButton = new QToolButton(this);
+    QPixmap pixExtr (":/images/Images/Extract_Icon.png");
+    extractButton->setGeometry(100,20,70,70);
+    extractButton->setIcon(pixExtr);
+    extractButton->setIconSize(QSize (32,32));
+    extractButton->setIcon(pixExtr.scaled(QSize (32,32),Qt::KeepAspectRatio,Qt::SmoothTransformation)); //Scale иконки
+    extractButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
+    extractButton->setText("Extract");
+    extractButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
+
+    //Кнопка просмотра файлов директории
+    QToolButton* viewButton = new QToolButton(this);
+    QPixmap pixView (":/images/Images/View_Icon.png");
+    viewButton->setGeometry(170,20,70,70);
+    viewButton->setIcon(pixView);
+    viewButton->setIconSize(QSize (32,32));
+    viewButton->setIcon(pixView.scaled(QSize (32,32),Qt::KeepAspectRatio,Qt::SmoothTransformation)); //Scale иконки
+    viewButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
+    viewButton->setText("View");
+    viewButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
+    QObject::connect(viewButton, &QToolButton::clicked, this, &MainWindow::ViewbuttonClick); //Обработка нажатия на кнопку просмотра файлов
+
+    //Кнопка удаления файлов
+    QToolButton* deleteButton = new QToolButton(this);
+    QPixmap pixDelete (":/images/Images/Delete_Icon.png");
+    deleteButton->setGeometry(240,20,70,70);
+    deleteButton->setIcon(pixDelete);
+    deleteButton->setIconSize(QSize (32,32));
+    deleteButton->setIcon(pixDelete.scaled(QSize (32,32),Qt::KeepAspectRatio,Qt::SmoothTransformation)); //Scale иконки
+    deleteButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
+    deleteButton->setText("Delete");
+    deleteButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
+
+
+
+
+
+}
 MainWindow::~MainWindow()
 {
     delete ui;
-    delete button;
 }
 
 void MainWindow::AddbuttonClick()
 {   QFileDialog FileSelect;
-
-
      QFileDialog::getOpenFileName(this,"Выберете файл","C://");
-
 }
 
+void MainWindow::ViewbuttonClick()
+{
+    //Виджеты для просмотра списка файлов
+    QFileSystemModel* systemFiles = new QFileSystemModel(this);
+    systemFiles->setRootPath(QDir::homePath()); //Устанавливаем путь - home path(root)
+
+    QTreeView*  fileView = new QTreeView(this);
+    fileView->setModel(systemFiles);
+    fileView->setRootIndex(systemFiles->index(QDir::homePath()));  //Устанавливаем корень древовидной структуры файлов
+    fileView->setGeometry(30,125,700,400);
+    fileView->setSortingEnabled(true);
+    fileView->setIndentation(20);                //Отступ
+    fileView->show();
+
+    //Поле для вывода пути
+    QFileSystemModel* systemFilesQbox = new QFileSystemModel(this);
+    systemFilesQbox->setRootPath(QDir::rootPath());
+    systemFilesQbox->setFilter(QDir::Drives| QDir::NoDotAndDotDot);
+
+    QComboBox* diskPath = new QComboBox(this);
+    diskPath->setGeometry(30,100,700,20);
+    diskPath->setModel(systemFiles);
+    diskPath->setModelColumn(QFileSystemModel::FileNameRole);
+    diskPath->setRootModelIndex(systemFilesQbox->index(QDir::rootPath()));
+    //QModelIndex modelIndex = diskPath->model()->index(index, 0);
+    //QString diskPath = systemFilesQbox->data(modelIndex, QFileSystemModel::FilePathRole.toString()); Доделать 03.03.2024
+    diskPath->show();
+
+}

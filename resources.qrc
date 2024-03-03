@@ -1,5 +1,8 @@
 <RCC>
     <qresource prefix="/images">
         <file>Images/Add_Icon.png</file>
+        <file>Images/Extract_Icon.png</file>
+        <file>Images/View_Icon.png</file>
+        <file>Images/Delete_Icon.png</file>
     </qresource>
 </RCC>
