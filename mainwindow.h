@@ -43,6 +43,7 @@ private slots:
     void ViewbuttonClick();
     void diskPath_Index_Change();
 
+
 };
 
 #endif // MAINWINDOW_H
