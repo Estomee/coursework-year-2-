@@ -76,7 +76,8 @@ void MainWindow::ViewbuttonClick()
     //Виджеты для просмотра списка файлов
     QFileSystemModel* systemFiles = new QFileSystemModel(this);
     // Установить корень модели файловой системы в соответствии с текущим диском
-    systemFiles->setRootPath(QDir::currentPath());
+
+    systemFiles->setRootPath(QDir::rootPath());
 
     fileView->setModel(systemFiles);
     fileView->setGeometry(30,125,700,400);
@@ -91,21 +92,23 @@ void MainWindow::ViewbuttonClick()
     //Поле для вывода пути
     QFileSystemModel* systemFilesQbox = new QFileSystemModel(this);
     systemFilesQbox->setRootPath(QDir::currentPath());
-    systemFilesQbox->setFilter(QDir::Drives | QDir::NoDotAndDotDot);
 
     QComboBox* diskPath = new QComboBox(this);
     diskPath->setGeometry(30,100,700,20);
-    diskPath->setModel(systemFiles);
-    diskPath->setModelColumn(QFileSystemModel::FileNameRole);
+    diskPath->setModel(systemFilesQbox);
+    connect(diskPath, &QComboBox::currentIndexChanged, this, &MainWindow::diskPath_Index_Change);
+
+
 
     diskPath->show();
 
 }
 
 
-void MainWindow::on_driveComboBox_currentIndexChanged(const QString &drive)
-{
-    // Изменить текущий диск при смене выбора в driveComboBox
-    QDir::setCurrent(drive);
+void MainWindow:: diskPath_Index_Change() //Доделать слот изменения содержания QTreeView от QComboBox
+{   QFileSystemModel abc;
+    abc.setRootPath(QDir(diskPath->currentText()).absolutePath());
+    fileView->setModel(&abc);
+    fileView->setRootIndex(abc.index(QDir(diskPath->currentText()).absolutePath()));));
 
 }
