@@ -108,7 +108,7 @@ void MainWindow::ViewbuttonClick()
 void MainWindow:: diskPath_Index_Change() //Доделать слот изменения содержания QTreeView от QComboBox
 {   QFileSystemModel ggg;
     ggg.setRootPath(QDir(diskPath->currentText()).absolutePath());
-    fileView->setModel(&abc);
-    fileView->setRootIndex(abc.index(QDir(diskPath->currentText()).absolutePath()));));
+    fileView->setModel(&ggg);
+    fileView->setRootIndex(ggg.index(QDir(diskPath->currentText()).absolutePath()));));
 
 }
