@@ -8,6 +8,7 @@
 #include <QTreeView>
 #include <QComboBox>
 #include <QSortFilterProxyModel>
+#include <QStringList>
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -32,16 +33,15 @@ private:
 
     //Виджеты к кнопке View
     QTreeView* fileView;
-    Ui::MainWindow* systemFilesProxy;
     QComboBox* diskPath;
-    Ui::MainWindow* systemFilesQbox;
-
+     QFileSystemModel * systemFilesQbox;
+    Ui::MainWindow* systemFiles;
 
 
 private slots:
     void AddbuttonClick();
     void ViewbuttonClick();
-    void on_driveComboBox_currentIndexChanged(const QString &drive);
+    void diskPath_Index_Change();
 
 };
 
