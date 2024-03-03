@@ -69,31 +69,43 @@ void MainWindow::AddbuttonClick()
 }
 
 void MainWindow::ViewbuttonClick()
-{
+{     QTreeView*  fileView = new QTreeView(this);
+    // Очистить QTreeView перед загрузкой новых файлов
+    fileView->setModel(nullptr);
+    fileView->reset();
     //Виджеты для просмотра списка файлов
     QFileSystemModel* systemFiles = new QFileSystemModel(this);
-    systemFiles->setRootPath(QDir::homePath()); //Устанавливаем путь - home path(root)
+    // Установить корень модели файловой системы в соответствии с текущим диском
+    systemFiles->setRootPath(QDir::currentPath());
 
-    QTreeView*  fileView = new QTreeView(this);
     fileView->setModel(systemFiles);
-    fileView->setRootIndex(systemFiles->index(QDir::homePath()));  //Устанавливаем корень древовидной структуры файлов
     fileView->setGeometry(30,125,700,400);
     fileView->setSortingEnabled(true);
     fileView->setIndentation(20);                //Отступ
+    fileView->setColumnWidth(0, 400); // Установить ширину колонки для отображения полных названий файлов
+    fileView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding); // Установить политику размеров для QTreeView
+    fileView->setSelectionMode(QAbstractItemView::ExtendedSelection); // Задать режим выбора элементов
+
     fileView->show();
 
     //Поле для вывода пути
     QFileSystemModel* systemFilesQbox = new QFileSystemModel(this);
-    systemFilesQbox->setRootPath(QDir::rootPath());
-    systemFilesQbox->setFilter(QDir::Drives| QDir::NoDotAndDotDot);
+    systemFilesQbox->setRootPath(QDir::currentPath());
+    systemFilesQbox->setFilter(QDir::Drives | QDir::NoDotAndDotDot);
 
     QComboBox* diskPath = new QComboBox(this);
     diskPath->setGeometry(30,100,700,20);
     diskPath->setModel(systemFiles);
     diskPath->setModelColumn(QFileSystemModel::FileNameRole);
-    diskPath->setRootModelIndex(systemFilesQbox->index(QDir::rootPath()));
-    //QModelIndex modelIndex = diskPath->model()->index(index, 0);
-    //QString diskPath = systemFilesQbox->data(modelIndex, QFileSystemModel::FilePathRole.toString()); Доделать 03.03.2024
+
     diskPath->show();
+
+}
+
+
+void MainWindow::on_driveComboBox_currentIndexChanged(const QString &drive)
+{
+    // Изменить текущий диск при смене выбора в driveComboBox
+    QDir::setCurrent(drive);
 
 }
