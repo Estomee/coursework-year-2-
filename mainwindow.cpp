@@ -54,8 +54,36 @@ MainWindow::MainWindow(QWidget *parent)
     deleteButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
 
 
+    fileView = new QTreeView(this);
 
+    //Виджеты для просмотра списка файлов
+    systemFiles = new QFileSystemModel(this);
+    // Установить корень модели файловой системы в соответствии с текущим диском
+    systemFiles->setRootPath(QDir::rootPath());
+    fileView->setModel(systemFiles);
+    fileView->setRootIndex(systemFiles->index("C://"));
 
+    fileView->setGeometry(30,125,850,400);
+    fileView->setSortingEnabled(true);
+    fileView->setIndentation(20);                //Отступ
+    fileView->setColumnWidth(0, 400); // Установить ширину колонки для отображения полных названий файлов
+    fileView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding); // Установить политику размеров для QTreeView
+    fileView->setSelectionMode(QAbstractItemView::ExtendedSelection); // Задать режим выбора элементов
+    fileView->setFocusPolicy(Qt::NoFocus);
+    fileView->sortByColumn(1, Qt::AscendingOrder);
+    //Вид поля с путями
+    systemFilesQbox = new QFileSystemModel(this);
+    systemFilesQbox->index("C://");
+    systemFilesQbox->setRootPath(QDir::currentPath());
+
+    //Поле для вывода пути
+    diskPath = new QComboBox(this);
+    diskPath->setGeometry(30,100,850,20);
+    diskPath->setModel(systemFilesQbox);
+    connect(diskPath, &QComboBox::currentIndexChanged, this, &MainWindow::diskPathIndexChange); //Соедниение события - при изменениее индекса (диска) меняется содержимое (папки и файлы)
+
+    //Соединения события - открытия окна
+    connect(fileView, &QTreeView::doubleClicked, this, &MainWindow::fileViewOpen);
 
 }
 MainWindow::~MainWindow()
@@ -68,47 +96,27 @@ void MainWindow::AddbuttonClick()
      QFileDialog::getOpenFileName(this,"Выберете файл","C://");
 }
 
+
+
 void MainWindow::ViewbuttonClick()
-{     QTreeView*  fileView = new QTreeView(this);
-    // Очистить QTreeView перед загрузкой новых файлов
-    fileView->setModel(nullptr);
-    fileView->reset();
-    //Виджеты для просмотра списка файлов
-    QFileSystemModel* systemFiles = new QFileSystemModel(this);
-    // Установить корень модели файловой системы в соответствии с текущим диском
+{
 
-    systemFiles->setRootPath(QDir::rootPath());
-
-    fileView->setModel(systemFiles);
-    fileView->setGeometry(30,125,700,400);
-    fileView->setSortingEnabled(true);
-    fileView->setIndentation(20);                //Отступ
-    fileView->setColumnWidth(0, 400); // Установить ширину колонки для отображения полных названий файлов
-    fileView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding); // Установить политику размеров для QTreeView
-    fileView->setSelectionMode(QAbstractItemView::ExtendedSelection); // Задать режим выбора элементов
-
-    fileView->show();
-
-    //Поле для вывода пути
-    QFileSystemModel* systemFilesQbox = new QFileSystemModel(this);
-    systemFilesQbox->setRootPath(QDir::currentPath());
-
-    QComboBox* diskPath = new QComboBox(this);
-    diskPath->setGeometry(30,100,700,20);
-    diskPath->setModel(systemFilesQbox);
-    connect(diskPath, &QComboBox::currentIndexChanged, this, &MainWindow::diskPath_Index_Change);
-
-
-
-    diskPath->show();
+   //Доделать View button 17.03.24
+  //  QDesktopServices::openUrl(QUrl::fromLocalFile(systemFiles->filePath(t)));
 
 }
 
-
-void MainWindow:: diskPath_Index_Change() //Доделать слот изменения содержания QTreeView от QComboBox
-{   QFileSystemModel ggg;
-    ggg.setRootPath(QDir(diskPath->currentText()).absolutePath());
-    fileView->setModel(&ggg);
-    fileView->setRootIndex(ggg.index(QDir(diskPath->currentText()).absolutePath()));));
-
+void MainWindow::diskPathIndexChange()
+{
+    QList <QFileInfo> mainDrives = QDir::drives();
+    systemFiles->setRootPath(mainDrives.at(diskPath->currentIndex()).absoluteFilePath());
+    fileView->setRootIndex(systemFiles->index(mainDrives.at(diskPath->currentIndex()).absoluteFilePath()));
 }
+
+void MainWindow::fileViewOpen(const QModelIndex index)
+{
+    QDesktopServices::openUrl(QUrl::fromLocalFile(systemFiles->filePath(index)));
+}
+
+
+

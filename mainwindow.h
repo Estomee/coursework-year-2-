@@ -9,6 +9,10 @@
 #include <QComboBox>
 #include <QSortFilterProxyModel>
 #include <QStringList>
+#include <QString>
+#include <QDir>
+#include <QDesktopServices>
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -35,13 +39,14 @@ private:
     QTreeView* fileView;
     QComboBox* diskPath;
      QFileSystemModel * systemFilesQbox;
-    Ui::MainWindow* systemFiles;
+    QFileSystemModel* systemFiles;
 
 
 private slots:
     void AddbuttonClick();
     void ViewbuttonClick();
-    void diskPath_Index_Change();
+    void diskPathIndexChange();
+    void fileViewOpen(const QModelIndex index);
 
 
 };
