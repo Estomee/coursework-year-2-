@@ -12,6 +12,9 @@
 #include <QString>
 #include <QDir>
 #include <QDesktopServices>
+#include <QMessageBox>
+#include <QDebug>
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -47,6 +50,7 @@ private slots:
     void ViewbuttonClick();
     void diskPathIndexChange();
     void fileViewOpen(const QModelIndex index);
+    void deleteButtonClick();
 
 
 };

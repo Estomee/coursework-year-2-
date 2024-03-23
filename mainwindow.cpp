@@ -52,7 +52,7 @@ MainWindow::MainWindow(QWidget *parent)
     deleteButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
     deleteButton->setText("Delete");
     deleteButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
-
+    QObject::connect(deleteButton, &QToolButton::clicked, this, &MainWindow::deleteButtonClick);
 
     fileView = new QTreeView(this);
 
@@ -105,18 +105,52 @@ void MainWindow::ViewbuttonClick()
   //  QDesktopServices::openUrl(QUrl::fromLocalFile(systemFiles->filePath(t)));
 
 }
-
+//Динамическое изменение списка файлов в зависимости от выбранного диска
 void MainWindow::diskPathIndexChange()
 {
     QList <QFileInfo> mainDrives = QDir::drives();
     systemFiles->setRootPath(mainDrives.at(diskPath->currentIndex()).absoluteFilePath());
     fileView->setRootIndex(systemFiles->index(mainDrives.at(diskPath->currentIndex()).absoluteFilePath()));
 }
-
+//Открытие файла в окне просмотра
 void MainWindow::fileViewOpen(const QModelIndex index)
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(systemFiles->filePath(index)));
 }
 
+void MainWindow::deleteButtonClick()
+{
+    QString path="";
+    QString fullPathToFolder="";
+    QString driveLetter ="";
+    QModelIndex fileViewIndex = fileView->currentIndex();
+    QRegularExpression regex =("^([A-Z]):");
+    QRegularExpressionMatch match = regex.match(diskPath->currentText());
+    if (match.hasMatch())   //Получаем букву диска
+    {
+        driveLetter = match.captured(1);
+    }
+
+    if (fileViewIndex.isValid())
+    {
+        path=fileViewIndex.data().toString();
+    }
+    else
+    {
+        QMessageBox::warning(this,"Warning","Выберете файл для удаления!");
+    }
+
+    path = diskLetter+":/"+path;        //Дотестить до fetch'a 22.03.2024
+    qDebug()<< path;
+    if (!QFile::exists(path))
+    {
+        qDebug() << "Файл не найден!";
+    }
+    else
+    {
+        QFile::remove(path);
+    }
+
+}
 
 
