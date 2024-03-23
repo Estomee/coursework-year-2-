@@ -52,7 +52,7 @@ MainWindow::MainWindow(QWidget *parent)
     deleteButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
     deleteButton->setText("Delete");
     deleteButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
-
+    QObject::connect(deleteButton, &QToolButton::clicked, this, &MainWindow::deleteButtonClick);
 
     fileView = new QTreeView(this);
 
@@ -62,15 +62,16 @@ MainWindow::MainWindow(QWidget *parent)
     systemFiles->setRootPath(QDir::rootPath());
     fileView->setModel(systemFiles);
     fileView->setRootIndex(systemFiles->index("C://"));
-
     fileView->setGeometry(30,125,850,400);
     fileView->setSortingEnabled(true);
+    fileView->header()->setSectionsMovable(false); //Запрещаем пользователю двигать столбцы
     fileView->setIndentation(20);                //Отступ
     fileView->setColumnWidth(0, 400); // Установить ширину колонки для отображения полных названий файлов
     fileView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding); // Установить политику размеров для QTreeView
     fileView->setSelectionMode(QAbstractItemView::ExtendedSelection); // Задать режим выбора элементов
     fileView->setFocusPolicy(Qt::NoFocus);
     fileView->sortByColumn(1, Qt::AscendingOrder);
+
     //Вид поля с путями
     systemFilesQbox = new QFileSystemModel(this);
     systemFilesQbox->index("C://");
@@ -82,7 +83,7 @@ MainWindow::MainWindow(QWidget *parent)
     diskPath->setModel(systemFilesQbox);
     connect(diskPath, &QComboBox::currentIndexChanged, this, &MainWindow::diskPathIndexChange); //Соедниение события - при изменениее индекса (диска) меняется содержимое (папки и файлы)
 
-    //Соединения события - открытия окна
+    //Соединения события - открытие окна
     connect(fileView, &QTreeView::doubleClicked, this, &MainWindow::fileViewOpen);
 
 }
@@ -101,22 +102,60 @@ void MainWindow::AddbuttonClick()
 void MainWindow::ViewbuttonClick()
 {
 
-   //Доделать View button 17.03.24
+   //Переделать ViewButton под кнопку Find или что-то в этом роде
   //  QDesktopServices::openUrl(QUrl::fromLocalFile(systemFiles->filePath(t)));
 
 }
-
+//Динамическое изменение списка файлов в зависимости от выбранного диска
 void MainWindow::diskPathIndexChange()
 {
     QList <QFileInfo> mainDrives = QDir::drives();
-    systemFiles->setRootPath(mainDrives.at(diskPath->currentIndex()).absoluteFilePath());
     fileView->setRootIndex(systemFiles->index(mainDrives.at(diskPath->currentIndex()).absoluteFilePath()));
 }
-
+//Открытие файла в окне просмотра
 void MainWindow::fileViewOpen(const QModelIndex index)
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(systemFiles->filePath(index)));
 }
 
+void MainWindow::deleteButtonClick()
+{
+    QString filesPath="";
 
+    QModelIndexList fileViewindexList =  fileView->selectionModel()->selectedIndexes(); //Образуем список выбранных индексов(папок) в fileView
+    QFileSystemModel *fileModel = qobject_cast<QFileSystemModel*>(fileView->model()); //Создаём файловую модель QTreeView для обработки индексов (папок и файлов)
 
+    if (fileViewindexList.empty())  //Проверка выделены ли файлы в списке
+    {
+        QMessageBox::warning(this,"Warning","Выберете файл или папку для удаления!");
+    }
+    else
+    {
+        foreach (const QModelIndex &index, fileViewindexList)  //Пробегаемся по списку выбранных файлов и папок
+            {
+                filesPath = fileModel->filePath(index);
+                QFileInfo fileInfo(filesPath);
+
+                if (fileInfo.isFile())
+                {
+                    QFile::remove(filesPath);
+                }
+                if (fileInfo.isDir())
+                {
+                    QDir dir(filesPath);
+                    dir.removeRecursively();
+                }
+            }
+        QMessageBox::information(this, "Success", "Файлы успешно удалены!");
+    }
+
+}
+
+/* 24.03.24 - Заметка
+ * Cделать локаль - в меню вывода списка файлово пофиксить байтов и тп, на английские названия
+ * Поработать с восходящим путём по диску (файл с названием "..")
+ *
+ *
+ *
+ *
+*/
