@@ -7,6 +7,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 {
     ui->setupUi(this);
+
     //Кнопка добавления Архива
     QToolButton *Addbutton = new QToolButton(this);
     QPixmap pixAdd(":/images/Images/Add_Icon.png"); //Иконка
@@ -42,6 +43,26 @@ MainWindow::MainWindow(QWidget *parent)
     viewButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
     QObject::connect(viewButton, &QToolButton::clicked, this, &MainWindow::ViewbuttonClick); //Обработка нажатия на кнопку просмотра файлов
 
+    //Окно поиска
+    findW = new QDialog(this);
+    findW->setWindowTitle("Search file");
+    findW->setFixedSize(400,300);
+
+    //Выбор коренной директории поиска
+
+    ChooseDiskPath = new QComboBox(findW);
+    ChooseDiskPath->setGeometry(10, 15, 100, 25);
+
+    FileNameFind = new QLineEdit(findW);
+    FileNameFind->setGeometry(115, 15, 100, 25);
+    QVBoxLayout findLayout;
+    //Доделать GroupBox 02.04.24
+
+
+
+
+
+
     //Кнопка удаления файлов
     QToolButton* deleteButton = new QToolButton(this);
     QPixmap pixDelete (":/images/Images/Delete_Icon.png");
@@ -53,7 +74,6 @@ MainWindow::MainWindow(QWidget *parent)
     deleteButton->setText("Delete");
     deleteButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
     QObject::connect(deleteButton, &QToolButton::clicked, this, &MainWindow::deleteButtonClick);
-
     fileView = new QTreeView(this);
 
     //Виджеты для просмотра списка файлов
@@ -71,6 +91,7 @@ MainWindow::MainWindow(QWidget *parent)
     fileView->setSelectionMode(QAbstractItemView::ExtendedSelection); // Задать режим выбора элементов
     fileView->setFocusPolicy(Qt::NoFocus);
     fileView->sortByColumn(1, Qt::AscendingOrder);
+
 
     //Вид поля с путями
     systemFilesQbox = new QFileSystemModel(this);
@@ -101,9 +122,8 @@ void MainWindow::AddbuttonClick()
 
 void MainWindow::ViewbuttonClick()
 {
+    findW->exec();
 
-   //Переделать ViewButton под кнопку Find или что-то в этом роде
-  //  QDesktopServices::openUrl(QUrl::fromLocalFile(systemFiles->filePath(t)));
 
 }
 //Динамическое изменение списка файлов в зависимости от выбранного диска

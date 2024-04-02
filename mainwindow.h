@@ -16,6 +16,10 @@
 #include <QDebug>
 #include <QModelIndexList>
 #include <QHeaderView>
+#include <QApplication>
+#include <QLineEdit>
+#include <QGroupBox>
+#include <QVBoxLayout>
 
 
 QT_BEGIN_NAMESPACE
@@ -40,12 +44,18 @@ private:
     Ui::MainWindow* viewButton;
     Ui::MainWindow* deleteButton;
 
-    //Виджеты к кнопке View
+    //Виджеты просмотру файлов
     QTreeView* fileView;
     QComboBox* diskPath;
-     QFileSystemModel * systemFilesQbox;
+    QFileSystemModel * systemFilesQbox;
     QFileSystemModel* systemFiles;
 
+    //Виджеты к окну find
+    QDialog* findW;
+    QComboBox* FindDiskPath;
+    QLineEdit* FileNameFind;
+    QComboBox* ChooseDiskPath;
+    QGroupBox GPFind;
 
 private slots:
     void AddbuttonClick();
