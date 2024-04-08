@@ -87,6 +87,7 @@ MainWindow::MainWindow(QWidget *parent)
     systemFiles->setRootPath(QDir::rootPath());
     fileView->setModel(systemFiles);
     fileView->header()->setSectionsMovable(false); //Запрещаем пользователю двигать столбцы
+    fileView->header()->setSectionResizeMode(QHeaderView::Fixed); //Запрещаем увеличивать размер столбцов
     fileView->setRootIndex(systemFiles->index("C://"));
     fileView->setGeometry(30,125,850,400);
     fileView->setSortingEnabled(true);
