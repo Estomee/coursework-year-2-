@@ -20,7 +20,8 @@
 #include <QLineEdit>
 #include <QGroupBox>
 #include <QVBoxLayout>
-
+#include <QLocale>
+#include <QLabel>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -55,7 +56,8 @@ private:
     QComboBox* FindDiskPath;
     QLineEdit* FileNameFind;
     QComboBox* ChooseDiskPath;
-    QGroupBox GPFind;
+    QGroupBox* GPFind;
+    QString NameOfFileString;
 
 private slots:
     void AddbuttonClick();

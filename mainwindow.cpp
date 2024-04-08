@@ -45,22 +45,27 @@ MainWindow::MainWindow(QWidget *parent)
 
     //Окно поиска
     findW = new QDialog(this);
-    findW->setWindowTitle("Search file");
-    findW->setFixedSize(400,300);
+    findW->setWindowTitle("Поиск файлов");
+    findW->setFixedSize(200, 180);
 
-    //Выбор коренной директории поиска
+    GPFind = new QGroupBox(findW);
+    GPFind->setTitle("Что искать");
+    GPFind->setGeometry(20, 10, 160, 150);
+
+    QLabel* FileNameFindLabel = new QLabel("Введите имя файла:",GPFind);
+    QLabel* FilePathFindLabel = new QLabel("Область поиска:", GPFind);
 
     ChooseDiskPath = new QComboBox(findW);
-    ChooseDiskPath->setGeometry(10, 15, 100, 25);
-
     FileNameFind = new QLineEdit(findW);
-    FileNameFind->setGeometry(115, 15, 100, 25);
-    QVBoxLayout findLayout;
+
+
+    QVBoxLayout* findLayout = new QVBoxLayout(GPFind);
     //Доделать GroupBox 02.04.24
-
-
-
-
+    findLayout->addWidget(FileNameFindLabel);
+    findLayout->addWidget(FileNameFind);
+    findLayout->addWidget(FilePathFindLabel);
+    findLayout->addWidget(ChooseDiskPath);
+    GPFind->setLayout(findLayout);
 
 
     //Кнопка удаления файлов
@@ -81,10 +86,10 @@ MainWindow::MainWindow(QWidget *parent)
     // Установить корень модели файловой системы в соответствии с текущим диском
     systemFiles->setRootPath(QDir::rootPath());
     fileView->setModel(systemFiles);
+    fileView->header()->setSectionsMovable(false); //Запрещаем пользователю двигать столбцы
     fileView->setRootIndex(systemFiles->index("C://"));
     fileView->setGeometry(30,125,850,400);
     fileView->setSortingEnabled(true);
-    fileView->header()->setSectionsMovable(false); //Запрещаем пользователю двигать столбцы
     fileView->setIndentation(20);                //Отступ
     fileView->setColumnWidth(0, 400); // Установить ширину колонки для отображения полных названий файлов
     fileView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding); // Установить политику размеров для QTreeView
@@ -114,8 +119,9 @@ MainWindow::~MainWindow()
 }
 
 void MainWindow::AddbuttonClick()
-{   QFileDialog FileSelect;
-     QFileDialog::getOpenFileName(this,"Выберете файл","C://");
+{
+    QFileDialog FileSelect;
+    QFileDialog::getOpenFileName(this,"Выберете файл","C://");
 }
 
 
@@ -123,7 +129,14 @@ void MainWindow::AddbuttonClick()
 void MainWindow::ViewbuttonClick()
 {
     findW->exec();
+    GPFind->show();
 
+
+    if (== Qt::Key_Enter)
+    {
+        NameOfFileString = FileNameFind->text();
+        //05.04.24 Доделать обработку события (нажатие Enter) для получения текста из QLineEdit
+    }
 
 }
 //Динамическое изменение списка файлов в зависимости от выбранного диска
@@ -174,7 +187,7 @@ void MainWindow::deleteButtonClick()
 /* 24.03.24 - Заметка
  * Cделать локаль - в меню вывода списка файлово пофиксить байтов и тп, на английские названия
  * Поработать с восходящим путём по диску (файл с названием "..")
- *
+ * 05.04.24 Почему стало работатать перетаскивание столбцов в fileview (хз почему, чекнуть локаль на домашнем пк)
  *
  *
  *
