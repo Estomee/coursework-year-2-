@@ -14,6 +14,7 @@
 #include <QDesktopServices>
 #include <QMessageBox>
 #include <QDebug>
+#include <QtGlobal>
 #include <QModelIndexList>
 #include <QHeaderView>
 #include <QApplication>
@@ -22,6 +23,10 @@
 #include <QVBoxLayout>
 #include <QLocale>
 #include <QLabel>
+#include <QList>
+#include <fstream>
+#include <sstream>
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -58,6 +63,9 @@ private:
     QComboBox* ChooseDiskPath;
     QGroupBox* GPFind;
     QString NameOfFileString;
+
+    //Список для хранения списка выделенных файлов для архивирования
+    QList<QString> FileListAdd;
 
 private slots:
     void AddbuttonClick();

@@ -79,8 +79,8 @@ MainWindow::MainWindow(QWidget *parent)
     deleteButton->setText("Delete");
     deleteButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
     QObject::connect(deleteButton, &QToolButton::clicked, this, &MainWindow::deleteButtonClick);
-    fileView = new QTreeView(this);
 
+    fileView = new QTreeView(this);
     //Виджеты для просмотра списка файлов
     systemFiles = new QFileSystemModel(this);
     // Установить корень модели файловой системы в соответствии с текущим диском
@@ -97,7 +97,20 @@ MainWindow::MainWindow(QWidget *parent)
     fileView->setSelectionMode(QAbstractItemView::ExtendedSelection); // Задать режим выбора элементов
     fileView->setFocusPolicy(Qt::NoFocus);
     fileView->sortByColumn(1, Qt::AscendingOrder);
-
+    QObject::connect(fileView->selectionModel(), &QItemSelectionModel::selectionChanged, [&](const QItemSelection &selected, const QItemSelection &deselected)
+                     {
+                         foreach(const QItemSelectionRange &range, selected)
+                         {
+                             QAbstractItemModel *model = fileView->model();
+                             for(int i = range.top(); i <= range.bottom(); ++i)
+                             {
+                                 QModelIndex index = model->index(i, 0, range.parent()); // получаем индекс дочернего элемента
+                                 QFileInfo fileInfo = systemFiles->fileInfo(index);
+                                 FileListAdd.append(fileInfo.absoluteFilePath());
+                             }
+                         }
+                         qDebug() << FileListAdd;
+                     });
 
     //Вид поля с путями
     systemFilesQbox = new QFileSystemModel(this);
@@ -121,8 +134,62 @@ MainWindow::~MainWindow()
 
 void MainWindow::AddbuttonClick()
 {
-    QFileDialog FileSelect;
-    QFileDialog::getOpenFileName(this,"Выберете файл","C://");
+    /*В  QModelIndexList получаем нужно количество элементов ( только, когда не выделена папка, надо доработать )
+     *   Путь к файлу пока не получается вывести верно, надо доработать
+
+    */
+
+    QFileInfoList fileList;  //Массив для хранения путей (используется, чтобы получить внутренние директории)
+    QString AddPathFile ="";
+    if (FileListAdd.empty())
+    {
+        QMessageBox::warning(this, "Warning", "Выберете файл или папку для добавления!");
+    }
+    else
+    {
+
+        foreach (QString index, FileListAdd)
+        {
+            QFileInfo FileType(index); //Получаем инфу о том, что выбрано (файл или папка)
+            if (FileType.isDir())
+            {
+                QDir FolderPath(index);
+                FolderPath.setFilter(QDir::AllEntries | QDir::NoDotAndDotDot); //Фильтры для считывания всех элементов в папке, которую мы выбрали для архивации
+                fileList = FolderPath.entryInfoList(); //Считывание всех элементов, которые находятся в выбранной папке ( в том числе и папки)
+                foreach (const QFileInfo& inf, fileList)
+                {
+                    FileListAdd.append(inf.filePath());   //Добавляем в глобальный массив все папки и файлы
+                }
+
+                qDebug() <<  FileListAdd;
+            }
+            /*
+             * Идея для обработки всех внутренних папок
+             * Если открыли папку, то считываем все элементы локальный массив
+             * Смотрим, есть ли в массиве путь до папки
+             * 1) Если есть, то делаем FolderPath.entryInfoList(); (нужно проверить, не будет ли происходить замена элементов, когда будем получать пути внутренних папок, нужно
+             * именно добавление в конец массива)
+             * 2) Иначе продолжаем проходить по массиву и так до того момента, пока в массиве не закончатся пути до папок.
+             * Дальше всё заливаем в глобальный массив и начинаем обработку каждого файла Алгоритмом Хаффмана
+             * */
+
+            ///Обработка файла ( тут всё окей)
+            QFile infile(index);
+
+            if (!infile.open(QIODevice::ReadOnly))
+            {
+                QMessageBox::warning(this, "Warning", "Не удалось открыть файл!");
+                FileListAdd.clear();
+                return;
+            }
+            else
+            {
+                QByteArray buffer = infile.readAll();
+                //qDebug()<<buffer;
+            }
+        }
+    }
+        FileListAdd.clear();
 }
 
 
@@ -133,11 +200,10 @@ void MainWindow::ViewbuttonClick()
     GPFind->show();
 
 
-    if (== Qt::Key_Enter)
-    {
+
         NameOfFileString = FileNameFind->text();
         //05.04.24 Доделать обработку события (нажатие Enter) для получения текста из QLineEdit
-    }
+
 
 }
 //Динамическое изменение списка файлов в зависимости от выбранного диска
@@ -145,11 +211,13 @@ void MainWindow::diskPathIndexChange()
 {
     QList <QFileInfo> mainDrives = QDir::drives();
     fileView->setRootIndex(systemFiles->index(mainDrives.at(diskPath->currentIndex()).absoluteFilePath()));
+
 }
 //Открытие файла в окне просмотра
 void MainWindow::fileViewOpen(const QModelIndex index)
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(systemFiles->filePath(index)));
+
 }
 
 void MainWindow::deleteButtonClick()
@@ -161,11 +229,11 @@ void MainWindow::deleteButtonClick()
 
     if (fileViewindexList.empty())  //Проверка выделены ли файлы в списке
     {
-        QMessageBox::warning(this,"Warning","Выберете файл или папку для удаления!");
+        QMessageBox::warning(this, "Warning", "Выберете файл или папку для удаления!");
     }
     else
     {
-        foreach (const QModelIndex &index, fileViewindexList)  //Пробегаемся по списку выбранных файлов и папок
+        foreach (const QModelIndex& index, fileViewindexList)  //Пробегаемся по списку выбранных файлов и папок
             {
                 filesPath = fileModel->filePath(index);
                 QFileInfo fileInfo(filesPath);
@@ -188,7 +256,7 @@ void MainWindow::deleteButtonClick()
 /* 24.03.24 - Заметка
  * Cделать локаль - в меню вывода списка файлово пофиксить байтов и тп, на английские названия
  * Поработать с восходящим путём по диску (файл с названием "..")
- * 05.04.24 Почему стало работатать перетаскивание столбцов в fileview (хз почему, чекнуть локаль на домашнем пк)
+ *
  *
  *
  *
