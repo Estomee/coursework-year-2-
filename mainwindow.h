@@ -26,7 +26,7 @@
 #include <QList>
 #include <fstream>
 #include <sstream>
-
+#include <unordered_map>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -67,6 +67,8 @@ private:
     //Список для хранения списка выделенных файлов для архивирования
     QList<QString> FileListAdd;
 
+
+
 private slots:
     void AddbuttonClick();
     void ViewbuttonClick();
@@ -76,5 +78,21 @@ private slots:
 
 
 };
+
+class Node
+{
+private:
+    int freq; //Частота появления символа
+    char ch; //Сам символ
+    Node* left; //Левый узел
+    Node* right; //Правый узел
+};
+
+Node* createNode(int freq, char ch, Node* left, Node* right); //Функция создания узла дерева для кодирования
+
+void encode (Node* root, std::string code, unordered_map<char, std::string>& HuffmanCode); // Функция для алгоритма кодирования
+
+void decode (Node* root, int& index, std::string code); //Функция для алгоритма декодирования
+
 
 #endif // MAINWINDOW_H

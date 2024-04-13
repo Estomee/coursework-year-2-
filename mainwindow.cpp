@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 
+QFileInfoList fileList;  //Массив для хранения путей (используется, чтобы получить внутренние директории, *ремарка* не знаю, стоит ли делать его глобальным)
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -131,6 +133,54 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+Node* createNode(int freq, char ch, Node* left, Node* right) //Создание узла дерева для кодирования
+{
+    Node* node = new Node();
+    node->freq = freq;
+    node->ch = ch;
+    node->left = left;
+    node->right;
+    return node;
+}
+
+void encode (Node* root, std::string code, unordered_map<char, std::string>& HuffmanCode) // Алгоритм кодирования
+{
+    if (root == nullptr)
+    {
+        return;
+    }
+
+    if (!root->left && !root->right) //Ищем висячие узлы
+    {
+        HuffmanCode[root->ch] = code;
+    }
+
+    encode(root->left, code + "0", HuffmanCode,);
+    encode(root->right, code + "1", Huffmancode);
+}
+
+void decode (Node* root, int& index, std::string code) //Расшифрока кода
+{
+    if (root == nullptr)
+    {
+        return;
+    }
+
+    index++;
+
+    if (!root->left && !root->right) //Ищем висячие узлы
+    {
+        //тут типа запись в файл расшифрованной строки данных
+    }
+    if (code[index]== '0')
+    {
+        decode(root->left, index, code);
+    }
+    else
+    {
+        decode(root->right, index, code);
+    }
+}
 bool isTextFile(const QString& pathToFile) //Проверка на то, является ли файл текстовым
 {
     const int bufferSize = 1024;    //Суть в том, что мы считывает буффер размером 1024
@@ -141,46 +191,45 @@ bool isTextFile(const QString& pathToFile) //Проверка на то, явл�
     }
     QByteArray fBuffer = f.read(bufferSize); // Считываем bufferSize байт
     f.close();
-    qDebug() << fBuffer;
-    qDebug() << pathToFile; // Надо подумать, чё делать с пустыми файлами
-    for (char c : fBuffer)  // Делаем простую проверку, если я могу считать символы с файла и они входят в таблицу ASCII, тогда возвращаем true - файл текстовый.
+    if (fBuffer.isEmpty())
     {
-        if (!QChar(c).isPrint())
+        return false;
+    }
+    else
+    {
+        for (char c : fBuffer)  // Делаем простую проверку, если я могу считать символы с файла и они входят в таблицу ASCII, тогда возвращаем true - файл текстовый.
         {
-            return false;
-        }
-        else
-        {
-            return true;
+            if (!QChar(c).isPrint())
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
         }
     }
 }
 
-void GetAllFilesPath(const QString& index, QFileInfoList& fileList) //Рекурсивная обработка всех  для последующей обработки
+void GetAllFilesPath(const QString& index) //Рекурсивная обработка всех  для последующей обработки
 {
     QDir FolderPath(index);
     FolderPath.setFilter(QDir::AllEntries | QDir::NoDotAndDotDot); //Фильтры для считывания всех элементов в папке, которую мы выбрали для архивации
     QFileInfoList folderContent = FolderPath.entryInfoList();
     for (const QFileInfo& fileinfo : folderContent)
     {
-        if (fileinfo.isFile())
+        if (fileinfo.isFile() && isTextFile(fileinfo.absoluteFilePath()))
         {
-
-            if(isTextFile(fileinfo.absoluteFilePath()))
-            {
-                 fileList.append(fileinfo); //Считывание всех элементов, которые находятся в выбранной папке
-            }
+           fileList.append(fileinfo);//Считывание всех элементов, которые находятся в выбранной папке
         }
         else if (fileinfo.isDir())
         {
-            GetAllFilesPath(fileinfo.absoluteFilePath(), fileList);  //Рекурсивный обход внутренних папок
+            GetAllFilesPath(fileinfo.absoluteFilePath());  //Рекурсивный обход внутренних папок
         }
     }
 }
-void MainWindow::AddbuttonClick()
+void MainWindow::AddbuttonClick() //Обработка добавления файлов в архив
 {
-
-    QFileInfoList fileList;  //Массив для хранения путей (используется, чтобы получить внутренние директории)
     QString AddPathFile ="";
     if (FileListAdd.empty())
     {
@@ -191,17 +240,19 @@ void MainWindow::AddbuttonClick()
         foreach (QString index, FileListAdd)
         {
             QFileInfo FileType(index); //Получаем инфу о том, что выбрано (файл или папка)
-            if (FileType.isDir())
+            if (FileType.isFile() && isTextFile(FileType.absoluteFilePath()))
             {
-                GetAllFilesPath(index, fileList);
+                fileList.append(FileType);
             }
-            qDebug() << fileList;
+            else
+            {
+                GetAllFilesPath(index);
+            }
         }
+        FileListAdd.clear();
 
-        foreach(const QFileInfo i, fileList)
+        foreach(const QFileInfo i, fileList)  //Обработка каждого файла
         {
-
-            ///Обработка файла ( тут всё окей)
             QFile infile(i.absoluteFilePath());
 
             if (!infile.open(QIODevice::ReadOnly))
@@ -213,12 +264,10 @@ void MainWindow::AddbuttonClick()
             else
             {
                 QByteArray buffer = infile.readAll();
-                qDebug() << buffer;
-
             }
-
+            qDebug() << fileList;
         }
-        FileListAdd.clear();
+
 }
 
 
@@ -239,7 +288,6 @@ void MainWindow::diskPathIndexChange()
 {
     QList <QFileInfo> mainDrives = QDir::drives();
     fileView->setRootIndex(systemFiles->index(mainDrives.at(diskPath->currentIndex()).absoluteFilePath()));
-
 }
 //Открытие файла в окне просмотра
 void MainWindow::fileViewOpen(const QModelIndex index)
