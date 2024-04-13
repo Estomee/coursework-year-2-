@@ -97,7 +97,7 @@ MainWindow::MainWindow(QWidget *parent)
     fileView->setSelectionMode(QAbstractItemView::ExtendedSelection); // Задать режим выбора элементов
     fileView->setFocusPolicy(Qt::NoFocus);
     fileView->sortByColumn(1, Qt::AscendingOrder);
-    QObject::connect(fileView->selectionModel(), &QItemSelectionModel::selectionChanged, [&](const QItemSelection &selected, const QItemSelection &deselected)
+    QObject::connect(fileView->selectionModel(), &QItemSelectionModel::selectionChanged, [&](const QItemSelection &selected, const QItemSelection &deselected) //Реализуем лямбда функцию для получения выбранных элементов в QTreeView(fileView)
                      {
                          foreach(const QItemSelectionRange &range, selected)
                          {
@@ -109,7 +109,6 @@ MainWindow::MainWindow(QWidget *parent)
                                  FileListAdd.append(fileInfo.absoluteFilePath());
                              }
                          }
-                         qDebug() << FileListAdd;
                      });
 
     //Вид поля с путями
@@ -132,49 +131,78 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+bool isTextFile(const QString& pathToFile) //Проверка на то, является ли файл текстовым
+{
+    const int bufferSize = 1024;    //Суть в том, что мы считывает буффер размером 1024
+    QFile f (pathToFile);
+    if (!f.open(QIODevice::ReadOnly))
+    {
+     return false;
+    }
+    QByteArray fBuffer = f.read(bufferSize); // Считываем bufferSize байт
+    f.close();
+    qDebug() << fBuffer;
+    qDebug() << pathToFile; // Надо подумать, чё делать с пустыми файлами
+    for (char c : fBuffer)  // Делаем простую проверку, если я могу считать символы с файла и они входят в таблицу ASCII, тогда возвращаем true - файл текстовый.
+    {
+        if (!QChar(c).isPrint())
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+    }
+}
+
+void GetAllFilesPath(const QString& index, QFileInfoList& fileList) //Рекурсивная обработка всех  для последующей обработки
+{
+    QDir FolderPath(index);
+    FolderPath.setFilter(QDir::AllEntries | QDir::NoDotAndDotDot); //Фильтры для считывания всех элементов в папке, которую мы выбрали для архивации
+    QFileInfoList folderContent = FolderPath.entryInfoList();
+    for (const QFileInfo& fileinfo : folderContent)
+    {
+        if (fileinfo.isFile())
+        {
+
+            if(isTextFile(fileinfo.absoluteFilePath()))
+            {
+                 fileList.append(fileinfo); //Считывание всех элементов, которые находятся в выбранной папке
+            }
+        }
+        else if (fileinfo.isDir())
+        {
+            GetAllFilesPath(fileinfo.absoluteFilePath(), fileList);  //Рекурсивный обход внутренних папок
+        }
+    }
+}
 void MainWindow::AddbuttonClick()
 {
-    /*В  QModelIndexList получаем нужно количество элементов ( только, когда не выделена папка, надо доработать )
-     *   Путь к файлу пока не получается вывести верно, надо доработать
-
-    */
 
     QFileInfoList fileList;  //Массив для хранения путей (используется, чтобы получить внутренние директории)
     QString AddPathFile ="";
     if (FileListAdd.empty())
     {
         QMessageBox::warning(this, "Warning", "Выберете файл или папку для добавления!");
+        return;
     }
-    else
-    {
 
         foreach (QString index, FileListAdd)
         {
             QFileInfo FileType(index); //Получаем инфу о том, что выбрано (файл или папка)
             if (FileType.isDir())
             {
-                QDir FolderPath(index);
-                FolderPath.setFilter(QDir::AllEntries | QDir::NoDotAndDotDot); //Фильтры для считывания всех элементов в папке, которую мы выбрали для архивации
-                fileList = FolderPath.entryInfoList(); //Считывание всех элементов, которые находятся в выбранной папке ( в том числе и папки)
-                foreach (const QFileInfo& inf, fileList)
-                {
-                    FileListAdd.append(inf.filePath());   //Добавляем в глобальный массив все папки и файлы
-                }
-
-                qDebug() <<  FileListAdd;
+                GetAllFilesPath(index, fileList);
             }
-            /*
-             * Идея для обработки всех внутренних папок
-             * Если открыли папку, то считываем все элементы локальный массив
-             * Смотрим, есть ли в массиве путь до папки
-             * 1) Если есть, то делаем FolderPath.entryInfoList(); (нужно проверить, не будет ли происходить замена элементов, когда будем получать пути внутренних папок, нужно
-             * именно добавление в конец массива)
-             * 2) Иначе продолжаем проходить по массиву и так до того момента, пока в массиве не закончатся пути до папок.
-             * Дальше всё заливаем в глобальный массив и начинаем обработку каждого файла Алгоритмом Хаффмана
-             * */
+            qDebug() << fileList;
+        }
+
+        foreach(const QFileInfo i, fileList)
+        {
 
             ///Обработка файла ( тут всё окей)
-            QFile infile(index);
+            QFile infile(i.absoluteFilePath());
 
             if (!infile.open(QIODevice::ReadOnly))
             {
@@ -185,13 +213,13 @@ void MainWindow::AddbuttonClick()
             else
             {
                 QByteArray buffer = infile.readAll();
-                //qDebug()<<buffer;
+                qDebug() << buffer;
+
             }
+
         }
-    }
         FileListAdd.clear();
 }
-
 
 
 void MainWindow::ViewbuttonClick()
