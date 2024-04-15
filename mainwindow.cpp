@@ -133,17 +133,17 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-Node* createNode(int freq, char ch, Node* left, Node* right) //Создание узла дерева для кодирования
+Node* createNode(char ch, int freq, Node* left, Node* right) //Создание узла дерева для кодирования
 {
     Node* node = new Node();
     node->freq = freq;
     node->ch = ch;
     node->left = left;
-    node->right;
+    node->right = right;
     return node;
 }
 
-void encode (Node* root, std::string code, unordered_map<char, std::string>& HuffmanCode) // Алгоритм кодирования
+void encode (Node* root, std::string code, std::unordered_map<char, std::string>& HuffmanCode) // Алгоритм кодирования
 {
     if (root == nullptr)
     {
@@ -152,34 +152,99 @@ void encode (Node* root, std::string code, unordered_map<char, std::string>& Huf
 
     if (!root->left && !root->right) //Ищем висячие узлы
     {
-        HuffmanCode[root->ch] = code;
+        HuffmanCode[root->ch] = code;   //15.04.24 Проверить шифровку данных
     }
 
-    encode(root->left, code + "0", HuffmanCode,);
-    encode(root->right, code + "1", Huffmancode);
+    encode(root->left, code + "0", HuffmanCode);
+    encode(root->right, code + "1", HuffmanCode);
 }
 
-void decode (Node* root, int& index, std::string code) //Расшифрока кода
+void decode (Node* root, int& index, std::string code, std::ofstream& outfile) //Расшифрока кода
 {
-    if (root == nullptr)
+    if (root == nullptr) {
+        return;
+    }
+
+    if (!root->left && !root->right)
     {
+        outfile << root->ch;
+
         return;
     }
 
     index++;
 
-    if (!root->left && !root->right) //Ищем висячие узлы
-    {
-        //тут типа запись в файл расшифрованной строки данных
-    }
-    if (code[index]== '0')
-    {
-        decode(root->left, index, code);
-    }
+    if (code[index] == '0')
+        decode(root->left, index, code, outfile);
     else
+        decode(root->right, index, code, outfile);
+}
+
+struct compare //Компаратор для очереди с приоритетом (выбираем узел в наименьшей частотой - высший приоритет)
+{
+    bool operator()(Node* l, Node* r)
     {
-        decode(root->right, index, code);
+        return l->freq > r->freq;
     }
+};
+
+void makingHuffmanTree(std::string buffer) //Функция создания дерева Хаффмана
+{
+    std::unordered_map <char, int> freq; //хэш-таблица для хранения частоты повторения символов
+
+    //Определеяем частоты символолов
+    for (char ch: buffer)
+    {
+        freq[ch]++;
+    }
+
+    std::priority_queue <Node*, std::vector <Node*> , compare> pQueue;
+
+    //Создаём висячие вершины для каждой буквы и помещаем их очередь с приоритетом
+    for (auto pair: freq)
+    {
+        pQueue.push(createNode(pair.first, pair.second, nullptr, nullptr));
+    }
+
+    //Собираем наши висячие вершины, объединяя их в более крупные узлы (собираем структуру дерева)
+    while (pQueue.size() != 1)
+    {
+        Node* left = pQueue.top();
+        pQueue.pop();
+        Node* right= pQueue.top();
+         pQueue.pop();
+
+        int sum = left->freq + right->freq;
+        pQueue.push(createNode('\0', sum, left, right));
+    }
+
+    Node* root = pQueue.top(); //Собраное дерево
+
+    std::unordered_map<char, std::string> HuffmanCode;
+    encode(root, "", HuffmanCode); //Вызываем функцию кодирования
+
+    std::string encodedStr; //Сохраняем закодированное содержимое файла
+
+    for (char ch: buffer)
+    {
+        encodedStr+=HuffmanCode[ch]; //После того, как разберёшься с шифровкой - проверь получение элемента из хэш-таблицы
+    }
+
+    int index = -1;
+
+    std::ofstream outfile;
+    outfile.open("1337.txt");
+    if (!outfile.is_open())
+    {
+        qDebug() << "File isn't opened!";
+    }
+    while (index < encodedStr.size()-2)
+    {
+        decode(root, index, encodedStr, outfile);
+    }
+
+    outfile.close();
+
 }
 bool isTextFile(const QString& pathToFile) //Проверка на то, является ли файл текстовым
 {
@@ -230,7 +295,8 @@ void GetAllFilesPath(const QString& index) //Рекурсивная обрабо
 }
 void MainWindow::AddbuttonClick() //Обработка добавления файлов в архив
 {
-    QString AddPathFile ="";
+    std::string buffer;
+    char ch;
     if (FileListAdd.empty())
     {
         QMessageBox::warning(this, "Warning", "Выберете файл или папку для добавления!");
@@ -253,9 +319,10 @@ void MainWindow::AddbuttonClick() //Обработка добавления фа
 
         foreach(const QFileInfo i, fileList)  //Обработка каждого файла
         {
-            QFile infile(i.absoluteFilePath());
-
-            if (!infile.open(QIODevice::ReadOnly))
+            QString AddPathFile =i.absoluteFilePath();
+            std::ifstream infile;
+            infile.open(QFile::encodeName(AddPathFile).toStdString(), std::ios::in);
+            if (!infile.is_open())
             {
                 QMessageBox::warning(this, "Warning", "Не удалось открыть файл!");
                 FileListAdd.clear();
@@ -263,9 +330,12 @@ void MainWindow::AddbuttonClick() //Обработка добавления фа
             }
             else
             {
-                QByteArray buffer = infile.readAll();
+                while (infile.get(ch))
+                {
+                      buffer+=ch;
+                }
             }
-            qDebug() << fileList;
+             makingHuffmanTree(buffer);
         }
 
 }

@@ -24,9 +24,12 @@
 #include <QLocale>
 #include <QLabel>
 #include <QList>
-#include <fstream>
 #include <sstream>
-#include <unordered_map>
+#include <map>
+#include <queue>
+#include <fstream>
+#include <string>
+#include <iostream>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -79,20 +82,26 @@ private slots:
 
 };
 
-class Node
+class Node //Узел дерева Хаффмана
 {
-private:
+  public:
     int freq; //Частота появления символа
     char ch; //Сам символ
     Node* left; //Левый узел
     Node* right; //Правый узел
 };
 
+Node* createNode(char ch, int freq, Node* left, Node* right); //Функция создания узла дерева для кодирования
+
+void encode (Node* root, std::string code, std::unordered_map <char, std::string>& HuffmanCode); // Функция для алгоритма кодирования
+
+void decode (Node* root, int& index, std::string code, std::ofstream& outfile); //Функция для алгоритма декодирования
+
 Node* createNode(int freq, char ch, Node* left, Node* right); //Функция создания узла дерева для кодирования
 
-void encode (Node* root, std::string code, unordered_map<char, std::string>& HuffmanCode); // Функция для алгоритма кодирования
+bool isTextFile(const QString& pathToFile); //Проверка на тип файла (текстовый или отличный от него)
 
-void decode (Node* root, int& index, std::string code); //Функция для алгоритма декодирования
+void GetAllFilesPath(const QString& index); //Функция получения путей выделенных файлов
 
 
 #endif // MAINWINDOW_H
