@@ -24,12 +24,14 @@
 #include <QLocale>
 #include <QLabel>
 #include <QList>
-#include <sstream>
+#include <QRegularExpression>
+#include <QValidator>
 #include <map>
 #include <queue>
 #include <fstream>
 #include <string>
 #include <iostream>
+#include <stack>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -67,6 +69,11 @@ private:
     QGroupBox* GPFind;
     QString NameOfFileString;
 
+    //Виджеты к окну add
+    QDialog* addW;
+    QLineEdit* ArchiveNameEnter;
+    QGroupBox* GPAdd;
+
     //Список для хранения списка выделенных файлов для архивирования
     QList<QString> FileListAdd;
 
@@ -78,6 +85,7 @@ private slots:
     void diskPathIndexChange();
     void fileViewOpen(const QModelIndex index);
     void deleteButtonClick();
+    void addGetArchiveName();
 
 
 };
@@ -95,7 +103,7 @@ Node* createNode(char ch, int freq, Node* left, Node* right); //Функция �
 
 void encode (Node* root, std::string code, std::unordered_map <char, std::string>& HuffmanCode); // Функция для алгоритма кодирования
 
-void decode (Node* root, int& index, std::string code, std::ofstream& outfile); //Функция для алгоритма декодирования
+void decode(Node* root, int &index, std::string encodedStr, QTextStream& outfile); //Функция для алгоритма декодирования
 
 Node* createNode(int freq, char ch, Node* left, Node* right); //Функция создания узла дерева для кодирования
 

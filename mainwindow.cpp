@@ -2,13 +2,16 @@
 #include "./ui_mainwindow.h"
 
 QFileInfoList fileList;  //Массив для хранения путей (используется, чтобы получить внутренние директории, *ремарка* не знаю, стоит ли делать его глобальным)
-
+QString ArchiveName = ""; //Имя архива
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 
 {
     ui->setupUi(this);
+    MainWindow::setWindowTitle("ESTM");
+    MainWindow::setFixedSize(930, 570);
+    MainWindow::setWindowFlags(MainWindow::windowFlags() | Qt::MSWindowsFixedSizeDialogHint);
 
     //Кнопка добавления Архива
     QToolButton *Addbutton = new QToolButton(this);
@@ -49,18 +52,13 @@ MainWindow::MainWindow(QWidget *parent)
     findW = new QDialog(this);
     findW->setWindowTitle("Поиск файлов");
     findW->setFixedSize(200, 180);
-
     GPFind = new QGroupBox(findW);
     GPFind->setTitle("Что искать");
     GPFind->setGeometry(20, 10, 160, 150);
-
     QLabel* FileNameFindLabel = new QLabel("Введите имя файла:",GPFind);
     QLabel* FilePathFindLabel = new QLabel("Область поиска:", GPFind);
-
     ChooseDiskPath = new QComboBox(findW);
     FileNameFind = new QLineEdit(findW);
-
-
     QVBoxLayout* findLayout = new QVBoxLayout(GPFind);
     //Доделать GroupBox 02.04.24
     findLayout->addWidget(FileNameFindLabel);
@@ -68,6 +66,26 @@ MainWindow::MainWindow(QWidget *parent)
     findLayout->addWidget(FilePathFindLabel);
     findLayout->addWidget(ChooseDiskPath);
     GPFind->setLayout(findLayout);
+
+    //Окно добавления архива
+    addW = new QDialog(this);
+    addW->setWindowTitle("Создать архив");
+    addW->setFixedSize(200, 60);
+    GPAdd = new QGroupBox(addW);
+    GPAdd->setTitle("Введите путь");
+    GPAdd->setGeometry(20, 40, 60, 40);
+    GPAdd->setObjectName("AddGP");
+    GPAdd->setStyleSheet("#AddGP {padding-top: 10px; border: 0.5px solid grey; border-radius: 3px; margin-top: 0px}");
+    QRegularExpression rx("^[A-Z]:\\\\[^\\\\/:*?\"<>|]+(\\\\.+)*\\\\?$");
+    QValidator *validator = new QRegularExpressionValidator(rx, this);
+    ArchiveNameEnter = new QLineEdit(GPAdd);
+    ArchiveNameEnter->setValidator(validator);
+    ArchiveNameEnter->setPlaceholderText("C:\\Users\\Username\\ArchiveName.estm");
+    ArchiveNameEnter->setGeometry(4, 15, 170, 20);
+    ArchiveNameEnter->setStyleSheet(" border: 0px;");
+    QVBoxLayout* addLayout = new QVBoxLayout(addW);
+    addLayout->addWidget(GPAdd);
+    QObject::connect(ArchiveNameEnter, &QLineEdit::returnPressed, this, &MainWindow::addGetArchiveName);
 
 
     //Кнопка удаления файлов
@@ -101,6 +119,10 @@ MainWindow::MainWindow(QWidget *parent)
     fileView->sortByColumn(1, Qt::AscendingOrder);
     QObject::connect(fileView->selectionModel(), &QItemSelectionModel::selectionChanged, [&](const QItemSelection &selected, const QItemSelection &deselected) //Реализуем лямбда функцию для получения выбранных элементов в QTreeView(fileView)
                      {
+                         if (!deselected.empty())
+                             {
+                                FileListAdd.clear();
+                             }
                          foreach(const QItemSelectionRange &range, selected)
                          {
                              QAbstractItemModel *model = fileView->model();
@@ -159,25 +181,26 @@ void encode (Node* root, std::string code, std::unordered_map<char, std::string>
     encode(root->right, code + "1", HuffmanCode);
 }
 
-void decode (Node* root, int& index, std::string code, std::ofstream& outfile) //Расшифрока кода
+void decode(Node* root, int &index, std::string encodedStr, QTextStream& outfile)
 {
-    if (root == nullptr) {
+    if (root == nullptr)
+    {
         return;
     }
 
+
     if (!root->left && !root->right)
     {
-        outfile << root->ch;
-
+        root->ch;
         return;
     }
 
     index++;
 
-    if (code[index] == '0')
-        decode(root->left, index, code, outfile);
+    if (encodedStr[index] =='0')
+        decode(root->left, index, encodedStr, outfile);
     else
-        decode(root->right, index, code, outfile);
+        decode(root->right, index, encodedStr, outfile);
 }
 
 struct compare //Компаратор для очереди с приоритетом (выбираем узел в наименьшей частотой - высший приоритет)
@@ -188,7 +211,20 @@ struct compare //Компаратор для очереди с приорите�
     }
 };
 
-void makingHuffmanTree(std::string buffer) //Функция создания дерева Хаффмана
+void MainWindow::addGetArchiveName() //Получаем имя архива от пользователя
+{
+    ArchiveName = ArchiveNameEnter->text();
+    QFileInfo suffArchAddCh(ArchiveName);
+    if (suffArchAddCh.suffix()!= "estm")
+    {
+        QMessageBox::warning(this, "Предупреждение", "Введите корректное расширение архива!");
+        return;
+    }
+    ArchiveNameEnter->clear();
+    addW->close();
+}
+
+void makingHuffmanTree(std::string& buffer) //Функция создания дерева Хаффмана
 {
     std::unordered_map <char, int> freq; //хэш-таблица для хранения частоты повторения символов
 
@@ -227,23 +263,31 @@ void makingHuffmanTree(std::string buffer) //Функция создания д�
 
     for (char ch: buffer)
     {
-        encodedStr+=HuffmanCode[ch]; //После того, как разберёшься с шифровкой - проверь получение элемента из хэш-таблицы
+        encodedStr+=HuffmanCode[ch];
     }
 
     int index = -1;
 
-    std::ofstream outfile;
-    outfile.open("1337.txt");
-    if (!outfile.is_open())
+    QFile fOut(ArchiveName);
+    if(fOut.open(QIODevice::WriteOnly | QIODevice::Append))
     {
-        qDebug() << "File isn't opened!";
-    }
-    while (index < encodedStr.size()-2)
-    {
-        decode(root, index, encodedStr, outfile);
-    }
+        QTextStream outfile(&fOut);
+       // while (index < (int)encodedStr.size()-2)
+       //{
+          //  decode(root, index, encodedStr, outfile);
+       // }
 
-    outfile.close();
+        qDebug ()<< encodedStr.size();
+        encodedStr+="\n";
+        qDebug() << encodedStr;
+        fOut.write(reinterpret_cast<const char*>(&encodedStr), sizeof(encodedStr));
+        fOut.close();
+    }
+    else
+    {
+        qDebug() << "File wasn't opened!";
+    }
+    encodedStr.clear();
 
 }
 bool isTextFile(const QString& pathToFile) //Проверка на то, является ли файл текстовым
@@ -295,14 +339,20 @@ void GetAllFilesPath(const QString& index) //Рекурсивная обрабо
 }
 void MainWindow::AddbuttonClick() //Обработка добавления файлов в архив
 {
-    std::string buffer;
-    char ch;
+
     if (FileListAdd.empty())
     {
-        QMessageBox::warning(this, "Warning", "Выберете файл или папку для добавления!");
+        QMessageBox::warning(this, "Предупреждение", "Выберете файл или папку для добавления!");
         return;
     }
-
+    QString buffer="";
+    char ch;
+    addW->exec();
+    GPAdd->show();
+    if (ArchiveName.isEmpty())
+    {
+        return;
+    }
         foreach (QString index, FileListAdd)
         {
             QFileInfo FileType(index); //Получаем инфу о том, что выбрано (файл или папка)
@@ -315,8 +365,6 @@ void MainWindow::AddbuttonClick() //Обработка добавления фа
                 GetAllFilesPath(index);
             }
         }
-        FileListAdd.clear();
-
         foreach(const QFileInfo i, fileList)  //Обработка каждого файла
         {
             QString AddPathFile =i.absoluteFilePath();
@@ -330,14 +378,19 @@ void MainWindow::AddbuttonClick() //Обработка добавления фа
             }
             else
             {
+                buffer = AddPathFile.remove(0, AddPathFile.indexOf('/')); //Получаем путь до файла без диска ( нужен для воссоздания исходной директории)
+                buffer += "\n";
                 while (infile.get(ch))
                 {
                       buffer+=ch;
                 }
             }
-             makingHuffmanTree(buffer);
+            buffer += "\r\n";
+            std::string tempStr = buffer.toStdString();
+            makingHuffmanTree(tempStr);
+            buffer.clear();
         }
-
+        ArchiveName.clear();
 }
 
 
@@ -375,7 +428,7 @@ void MainWindow::deleteButtonClick()
 
     if (fileViewindexList.empty())  //Проверка выделены ли файлы в списке
     {
-        QMessageBox::warning(this, "Warning", "Выберете файл или папку для удаления!");
+        QMessageBox::warning(this, "Предупреждение", "Выберете файл или папку для удаления!");
     }
     else
     {
