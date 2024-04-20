@@ -33,6 +33,7 @@
 #include <iostream>
 #include <stack>
 
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -106,6 +107,10 @@ void encode (Node* root, std::string code, std::unordered_map <char, std::string
 void decode(Node* root, int &index, std::string encodedStr, QTextStream& outfile); //Функция для алгоритма декодирования
 
 Node* createNode(int freq, char ch, Node* left, Node* right); //Функция создания узла дерева для кодирования
+
+void deleteHuffmanTree(Node* root); //Функция удаления дерева Хаффмана
+
+void makingHuffmanTree(std::string& buffer); //Создание и обработка дерева Хаффмана
 
 bool isTextFile(const QString& pathToFile); //Проверка на тип файла (текстовый или отличный от него)
 

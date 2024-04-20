@@ -44,28 +44,34 @@ MainWindow::MainWindow(QWidget *parent)
     viewButton->setIconSize(QSize (32,32));
     viewButton->setIcon(pixView.scaled(QSize (32,32),Qt::KeepAspectRatio,Qt::SmoothTransformation)); //Scale иконки
     viewButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
-    viewButton->setText("View");
+    viewButton->setText("Find");
     viewButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
     QObject::connect(viewButton, &QToolButton::clicked, this, &MainWindow::ViewbuttonClick); //Обработка нажатия на кнопку просмотра файлов
 
     //Окно поиска
     findW = new QDialog(this);
     findW->setWindowTitle("Поиск файлов");
-    findW->setFixedSize(200, 180);
+    findW->setFixedSize(250, 180);
     GPFind = new QGroupBox(findW);
     GPFind->setTitle("Что искать");
-    GPFind->setGeometry(20, 10, 160, 150);
+    GPFind->setGeometry(20, 10, 200, 150);
+    GPFind->setObjectName("GPFind");
+    GPFind->setStyleSheet("#GPFind {border: 0.5px solid grey; border-radius: 3px;}");
     QLabel* FileNameFindLabel = new QLabel("Введите имя файла:",GPFind);
-    QLabel* FilePathFindLabel = new QLabel("Область поиска:", GPFind);
+    QLabel* FilePathFindLabel = new QLabel("Область поиска", GPFind);
     ChooseDiskPath = new QComboBox(findW);
     FileNameFind = new QLineEdit(findW);
+    QRegularExpression regx ("^[A-Z a-z]+*?$");
     QVBoxLayout* findLayout = new QVBoxLayout(GPFind);
-    //Доделать GroupBox 02.04.24
     findLayout->addWidget(FileNameFindLabel);
     findLayout->addWidget(FileNameFind);
     findLayout->addWidget(FilePathFindLabel);
     findLayout->addWidget(ChooseDiskPath);
     GPFind->setLayout(findLayout);
+    QFileSystemModel* systemFilesBox = new QFileSystemModel(findW);
+    systemFilesBox ->index("C://");
+    systemFilesBox->setRootPath(QDir::currentPath());
+    ChooseDiskPath->setModel(systemFilesBox);
 
     //Окно добавления архива
     addW = new QDialog(this);
@@ -163,6 +169,17 @@ Node* createNode(char ch, int freq, Node* left, Node* right) //Создание 
     node->left = left;
     node->right = right;
     return node;
+}
+
+void deleteHuffmanTree(Node* root)
+{
+    if (root == nullptr)
+    {
+        return;
+    }
+    deleteHuffmanTree(root->left);
+    deleteHuffmanTree(root->right);
+    delete root;
 }
 
 void encode (Node* root, std::string code, std::unordered_map<char, std::string>& HuffmanCode) // Алгоритм кодирования
@@ -280,6 +297,7 @@ void makingHuffmanTree(std::string& buffer) //Функция создания д
         qDebug ()<< encodedStr.size();
         encodedStr+="\n";
         qDebug() << encodedStr;
+
         fOut.write(reinterpret_cast<const char*>(&encodedStr), sizeof(encodedStr));
         fOut.close();
     }
@@ -287,7 +305,7 @@ void makingHuffmanTree(std::string& buffer) //Функция создания д
     {
         qDebug() << "File wasn't opened!";
     }
-    encodedStr.clear();
+    deleteHuffmanTree(root);
 
 }
 bool isTextFile(const QString& pathToFile) //Проверка на то, является ли файл текстовым
@@ -400,10 +418,8 @@ void MainWindow::ViewbuttonClick()
     GPFind->show();
 
 
-
         NameOfFileString = FileNameFind->text();
         //05.04.24 Доделать обработку события (нажатие Enter) для получения текста из QLineEdit
-
 
 }
 //Динамическое изменение списка файлов в зависимости от выбранного диска
