@@ -32,7 +32,7 @@
 #include <string>
 #include <iostream>
 #include <stack>
-
+#include <zlib.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -75,6 +75,11 @@ private:
     QLineEdit* ArchiveNameEnter;
     QGroupBox* GPAdd;
 
+    //Виджеты к окну extract
+    QDialog* extractW;
+    QLineEdit* ExtractFolderEnter;
+    QGroupBox* GPExtract;
+
     //Список для хранения списка выделенных файлов для архивирования
     QList<QString> FileListAdd;
 
@@ -87,30 +92,12 @@ private slots:
     void fileViewOpen(const QModelIndex index);
     void deleteButtonClick();
     void addGetArchiveName();
-
-
+    void ExtractButtonClick();
+    void extractArchivePlace();
 };
+void ReadData(std::string& pathToFile, std::string& buffer); //Функция чтения данных
 
-class Node //Узел дерева Хаффмана
-{
-  public:
-    int freq; //Частота появления символа
-    char ch; //Сам символ
-    Node* left; //Левый узел
-    Node* right; //Правый узел
-};
-
-Node* createNode(char ch, int freq, Node* left, Node* right); //Функция создания узла дерева для кодирования
-
-void encode (Node* root, std::string code, std::unordered_map <char, std::string>& HuffmanCode); // Функция для алгоритма кодирования
-
-void decode(Node* root, int &index, std::string encodedStr, QTextStream& outfile); //Функция для алгоритма декодирования
-
-Node* createNode(int freq, char ch, Node* left, Node* right); //Функция создания узла дерева для кодирования
-
-void deleteHuffmanTree(Node* root); //Функция удаления дерева Хаффмана
-
-void makingHuffmanTree(std::string& buffer); //Создание и обработка дерева Хаффмана
+void makingHuffmanTree(std::string& pathToFile, std::string& buffer); //Создание и обработка дерева Хаффмана
 
 bool isTextFile(const QString& pathToFile); //Проверка на тип файла (текстовый или отличный от него)
 

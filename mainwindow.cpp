@@ -3,6 +3,8 @@
 
 QFileInfoList fileList;  //Массив для хранения путей (используется, чтобы получить внутренние директории, *ремарка* не знаю, стоит ли делать его глобальным)
 QString ArchiveName = ""; //Имя архива
+QString ExtractPlace =""; //Куда будет извлекать архив (путь)
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -35,6 +37,7 @@ MainWindow::MainWindow(QWidget *parent)
     extractButton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
     extractButton->setText("Extract");
     extractButton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
+    QObject::connect(extractButton, &QToolButton::clicked, this, &MainWindow::ExtractButtonClick);
 
     //Кнопка просмотра файлов директории
     QToolButton* viewButton = new QToolButton(this);
@@ -93,6 +96,25 @@ MainWindow::MainWindow(QWidget *parent)
     addLayout->addWidget(GPAdd);
     QObject::connect(ArchiveNameEnter, &QLineEdit::returnPressed, this, &MainWindow::addGetArchiveName);
 
+    //Окно извлечения архива
+    extractW = new QDialog(this);
+    extractW->setWindowTitle("Извлечь архив");
+    extractW->setFixedSize(200, 60);
+    GPExtract = new QGroupBox(extractW);
+    GPExtract->setTitle("Введите путь");
+    GPExtract->setGeometry(20, 40, 60, 40);
+    GPExtract->setObjectName("AddGP");
+    GPExtract->setStyleSheet("#AddGP {padding-top: 10px; border: 0.5px solid grey; border-radius: 3px; margin-top: 0px}");
+    QRegularExpression rxExtact("^[A-Z]:\\\\[^\\\\/:*?.\"<>|]+(\\\\.[^.]+)*\\\\?$");
+    QValidator *validExtract = new QRegularExpressionValidator(rxExtact, this);
+    ExtractFolderEnter= new QLineEdit(GPExtract);
+    ExtractFolderEnter->setValidator(validExtract);
+    ExtractFolderEnter->setPlaceholderText("C:\\Users\\Username\\");
+    ExtractFolderEnter->setGeometry(4, 15, 170, 20);
+    ExtractFolderEnter->setStyleSheet(" border: 0px;");
+    QVBoxLayout* ExtractLayout = new QVBoxLayout(extractW);
+    ExtractLayout->addWidget(GPExtract);
+    QObject::connect(ExtractFolderEnter, &QLineEdit::returnPressed, this, &MainWindow::extractArchivePlace);
 
     //Кнопка удаления файлов
     QToolButton* deleteButton = new QToolButton(this);
@@ -161,72 +183,6 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-Node* createNode(char ch, int freq, Node* left, Node* right) //Создание узла дерева для кодирования
-{
-    Node* node = new Node();
-    node->freq = freq;
-    node->ch = ch;
-    node->left = left;
-    node->right = right;
-    return node;
-}
-
-void deleteHuffmanTree(Node* root)
-{
-    if (root == nullptr)
-    {
-        return;
-    }
-    deleteHuffmanTree(root->left);
-    deleteHuffmanTree(root->right);
-    delete root;
-}
-
-void encode (Node* root, std::string code, std::unordered_map<char, std::string>& HuffmanCode) // Алгоритм кодирования
-{
-    if (root == nullptr)
-    {
-        return;
-    }
-
-    if (!root->left && !root->right) //Ищем висячие узлы
-    {
-        HuffmanCode[root->ch] = code;   //15.04.24 Проверить шифровку данных
-    }
-
-    encode(root->left, code + "0", HuffmanCode);
-    encode(root->right, code + "1", HuffmanCode);
-}
-
-void decode(Node* root, int &index, std::string encodedStr, QTextStream& outfile)
-{
-    if (root == nullptr)
-    {
-        return;
-    }
-
-
-    if (!root->left && !root->right)
-    {
-        root->ch;
-        return;
-    }
-
-    index++;
-
-    if (encodedStr[index] =='0')
-        decode(root->left, index, encodedStr, outfile);
-    else
-        decode(root->right, index, encodedStr, outfile);
-}
-
-struct compare //Компаратор для очереди с приоритетом (выбираем узел в наименьшей частотой - высший приоритет)
-{
-    bool operator()(Node* l, Node* r)
-    {
-        return l->freq > r->freq;
-    }
-};
 
 void MainWindow::addGetArchiveName() //Получаем имя архива от пользователя
 {
@@ -241,73 +197,159 @@ void MainWindow::addGetArchiveName() //Получаем имя архива от
     addW->close();
 }
 
-void makingHuffmanTree(std::string& buffer) //Функция создания дерева Хаффмана
+std::vector <unsigned char> compresspath(const std::string& pathToFile) //сжатие пути до файла
 {
-    std::unordered_map <char, int> freq; //хэш-таблица для хранения частоты повторения символов
+    uLongf maxCompressedSize = compressBound(pathToFile.length());
+    std::vector<unsigned char> compressed(maxCompressedSize); //сжатая строка
+    uLongf compressedSize = maxCompressedSize;
 
-    //Определеяем частоты символолов
-    for (char ch: buffer)
-    {
-        freq[ch]++;
+    int compressionLevel = Z_DEFAULT_COMPRESSION;
+    int result = compress2((Bytef*)compressed.data(), &compressedSize, (const Bytef*)pathToFile.data(), pathToFile.length(), compressionLevel);
+
+    if (result != Z_OK) {
+        throw std::runtime_error("Failed to compress string");
     }
 
-    std::priority_queue <Node*, std::vector <Node*> , compare> pQueue;
+    compressed.resize(compressedSize);
+    return compressed;
+}
 
-    //Создаём висячие вершины для каждой буквы и помещаем их очередь с приоритетом
-    for (auto pair: freq)
+std::vector<unsigned char> compressdata(const std::vector<unsigned char>& inputData)
+{
+    z_stream stream;
+    stream.zalloc = Z_NULL;
+    stream.zfree = Z_NULL;
+    stream.opaque = Z_NULL;
+    stream.avail_in = inputData.size();
+    stream.next_in = const_cast<Bytef*>(inputData.data());
+
+    deflateInit(&stream, Z_DEFAULT_COMPRESSION);
+
+    std::vector<unsigned char> output;
+    unsigned char buffer[16384];
+    do {
+        stream.avail_out = sizeof(buffer);
+        stream.next_out = buffer;
+
+        int result = deflate(&stream, Z_FINISH);
+        if (result == Z_STREAM_ERROR)
+        {
+            deflateEnd(&stream);
+            throw std::runtime_error("Failed to compress data");
+        }
+
+        int have = sizeof(buffer) - stream.avail_out;
+        output.insert(output.end(), buffer, buffer + have);
+    } while (stream.avail_out == 0);
+
+    deflateEnd(&stream);
+
+    return output;
+}
+
+std::vector<unsigned char> decompressdata(const std::vector<unsigned char>& inputData) //Разархивирование данных
+{
+    z_stream stream;
+    stream.zalloc = Z_NULL;
+    stream.zfree = Z_NULL;
+    stream.opaque = Z_NULL;
+    stream.avail_in =  inputData.size();
+    stream.next_in = const_cast<Bytef*>(inputData.data());
+
+    if (inflateInit(&stream) != Z_OK)
     {
-        pQueue.push(createNode(pair.first, pair.second, nullptr, nullptr));
+        throw std::runtime_error("Failed to initialize decompression stream");
     }
 
-    //Собираем наши висячие вершины, объединяя их в более крупные узлы (собираем структуру дерева)
-    while (pQueue.size() != 1)
+    std::vector<unsigned char> output;
+    unsigned char buffer[16384];
+    int ret;
+    do {
+        stream.avail_out = sizeof(buffer);
+        stream.next_out = buffer;
+
+        ret = inflate(&stream, Z_NO_FLUSH);
+
+        if (ret < 0)
+        {
+            inflateEnd(&stream);
+            throw std::runtime_error("Failed to decompress data");
+        }
+
+        int have = sizeof(buffer) - stream.avail_out;
+        output.insert(output.end(), buffer, buffer + have);
+    } while (ret != Z_STREAM_END);
+
+    inflateEnd(&stream);
+
+    return output;
+}
+void create_file_with_directories(QString& path, std::vector<unsigned char>& dataApart) //Воссоздание директории после разархивации
+{
+    QDir dir;
+
+    const QString finalPath (ExtractPlace + path);
+    QFileInfo finf(finalPath);
+
+    dir.mkpath(finf.path());
+    std::string pathToCreateFile = finf.absoluteFilePath().toStdString();
+    std::fstream fCreate(pathToCreateFile, std::ios::out);
+    fCreate.write(reinterpret_cast<const char*>(dataApart.data()), dataApart.size());
+}
+void MainWindow::extractArchivePlace()
+{
+    ExtractPlace = ExtractFolderEnter->text();
+    ExtractFolderEnter->clear();
+    extractW->close();
+}
+void MainWindow::ExtractButtonClick() //Разархивация
+{
+    if (FileListAdd.empty())
     {
-        Node* left = pQueue.top();
-        pQueue.pop();
-        Node* right= pQueue.top();
-         pQueue.pop();
-
-        int sum = left->freq + right->freq;
-        pQueue.push(createNode('\0', sum, left, right));
+       QMessageBox::warning(this, "Предупреждение", "Выберете файл для разархивирования!");
+        return;
     }
-
-    Node* root = pQueue.top(); //Собраное дерево
-
-    std::unordered_map<char, std::string> HuffmanCode;
-    encode(root, "", HuffmanCode); //Вызываем функцию кодирования
-
-    std::string encodedStr; //Сохраняем закодированное содержимое файла
-
-    for (char ch: buffer)
+    extractW->exec();
+    GPExtract->show();
+    QString extension;
+    for (QString str: FileListAdd) //Пробегаемся по каждому архиву, который выбрали
     {
-        encodedStr+=HuffmanCode[ch];
+        QFileInfo f(str);
+        extension = f.suffix().toLower();
+        if(extension.isEmpty() || extension!="estm") //Валидация расширения архива
+        {
+            QMessageBox::warning(this, "Предупреждение", "Вы выбрали папку или файл, который имеет расширение, отличное от поддерживаемого архиватором!");
+            return;
+        }
+        else
+        {
+            std::fstream readArchive(QFile::encodeName(str).toStdString(), std::ios::binary | std::ios::in);
+            if (!readArchive.is_open())
+           {
+               qDebug() << "File isn't opened";
+           }
+             std::vector<unsigned char> compressedData;
+            while (!readArchive.eof())
+            {
+                std::string line;
+                std::getline(readArchive, line);
+                for (char c : line)
+                {
+                    compressedData.push_back(static_cast<unsigned char>(c));
+                }
+
+
+                std::vector<unsigned char> decompressData = decompressdata(compressedData);
+                std::ofstream outFile("D:/testCourseWork/decoded_data.txt", std::ios::out | std::ios::binary);
+                outFile.write(reinterpret_cast<const char*>(decompressData.data()), decompressData.size());
+                outFile.close();
+            }
+        }
     }
-
-    int index = -1;
-
-    QFile fOut(ArchiveName);
-    if(fOut.open(QIODevice::WriteOnly | QIODevice::Append))
-    {
-        QTextStream outfile(&fOut);
-       // while (index < (int)encodedStr.size()-2)
-       //{
-          //  decode(root, index, encodedStr, outfile);
-       // }
-
-        qDebug ()<< encodedStr.size();
-        encodedStr+="\n";
-        qDebug() << encodedStr;
-
-        fOut.write(reinterpret_cast<const char*>(&encodedStr), sizeof(encodedStr));
-        fOut.close();
-    }
-    else
-    {
-        qDebug() << "File wasn't opened!";
-    }
-    deleteHuffmanTree(root);
+    ExtractPlace.clear();
 
 }
+
 bool isTextFile(const QString& pathToFile) //Проверка на то, является ли файл текстовым
 {
     const int bufferSize = 1024;    //Суть в том, что мы считывает буффер размером 1024
@@ -363,7 +405,8 @@ void MainWindow::AddbuttonClick() //Обработка добавления фа
         QMessageBox::warning(this, "Предупреждение", "Выберете файл или папку для добавления!");
         return;
     }
-    QString buffer="";
+    QString buffer=""; //храним информацию
+    QString pathToFile= "";
     char ch;
     addW->exec();
     GPAdd->show();
@@ -387,30 +430,29 @@ void MainWindow::AddbuttonClick() //Обработка добавления фа
         {
             QString AddPathFile =i.absoluteFilePath();
             std::ifstream infile;
-            infile.open(QFile::encodeName(AddPathFile).toStdString(), std::ios::in);
+            infile.open(QFile::encodeName(AddPathFile).toStdString(), std::ios::in );
             if (!infile.is_open())
             {
-                QMessageBox::warning(this, "Warning", "Не удалось открыть файл!");
                 FileListAdd.clear();
                 return;
             }
             else
             {
-                buffer = AddPathFile.remove(0, AddPathFile.indexOf('/')); //Получаем путь до файла без диска ( нужен для воссоздания исходной директории)
-                buffer += "\n";
-                while (infile.get(ch))
-                {
-                      buffer+=ch;
-                }
-            }
-            buffer += "\r\n";
-            std::string tempStr = buffer.toStdString();
-            makingHuffmanTree(tempStr);
-            buffer.clear();
+                std::vector <unsigned char> inputData((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
+                infile.close();
+                pathToFile+='\0';
+                pathToFile = AddPathFile.remove(0, AddPathFile.indexOf('/')); //Получаем путь до файла без диска ( нужен для воссоздания исходной директории)
+                std::vector<unsigned char> compressedPath = compresspath(QFile::encodeName(pathToFile).toStdString());
+                std::vector  <unsigned char> compressedData =compressdata(inputData);
+                std::ofstream writeToArchive(QFile::encodeName(ArchiveName).toStdString(), std::ios::binary | std::ios::out | std::ios::app);
+                writeToArchive.write(reinterpret_cast<const char*>(compressedData.data()), compressedData.size());
+                writeToArchive.write(reinterpret_cast<const char*>(compressedPath.data()), compressedPath.size());
+                writeToArchive.close();
+                pathToFile.clear();
         }
-        ArchiveName.clear();
+            ArchiveName.clear();
+        }
 }
-
 
 void MainWindow::ViewbuttonClick()
 {
