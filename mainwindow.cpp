@@ -4,6 +4,8 @@
 QFileInfoList fileList;  //Массив для хранения путей (используется, чтобы получить внутренние директории, *ремарка* не знаю, стоит ли делать его глобальным)
 QString ArchiveName = ""; //Имя архива
 QString ExtractPlace =""; //Куда будет извлекать архив (путь)
+QFileInfoList fileListView; //Храним список файлов для поиска
+QString NameOfFileString; //Храним имя файла, который ищем
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -15,6 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
     MainWindow::setFixedSize(930, 570);
     MainWindow::setWindowFlags(MainWindow::windowFlags() | Qt::MSWindowsFixedSizeDialogHint);
 
+
     //Кнопка добавления Архива
     QToolButton *Addbutton = new QToolButton(this);
     QPixmap pixAdd(":/images/Images/Add_Icon.png"); //Иконка
@@ -23,7 +26,7 @@ MainWindow::MainWindow(QWidget *parent)
     Addbutton->setIconSize(QSize (32,32));
     Addbutton->setIcon(pixAdd.scaled(QSize (32,32),Qt::KeepAspectRatio,Qt::SmoothTransformation)); //Scale иконки
     Addbutton->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);  //Текст под иконкой
-    Addbutton->setText("Add");
+    Addbutton->setText("Create");
     Addbutton->setStyleSheet( "QToolButton { border: none; }" "QToolButton:pressed { background-color: #cce6ff; border: 0.5px solid #66b3ff; padding: 0px }" ); //Стили на кнопку
     QObject::connect(Addbutton, &QToolButton::clicked, this, &MainWindow::AddbuttonClick); //Обработка нажатия на кнопку добавления
 
@@ -64,25 +67,45 @@ MainWindow::MainWindow(QWidget *parent)
     QLabel* FilePathFindLabel = new QLabel("Область поиска", GPFind);
     ChooseDiskPath = new QComboBox(findW);
     FileNameFind = new QLineEdit(findW);
-    QRegularExpression regx ("^[A-Z a-z]+*?$");
+    FileNameFind->setPlaceholderText("123.txt");
+
+    QRegularExpression regx ("^[A-Za-zа-ъА-Ъ0-9.]*$");
+    QValidator* FindWValid = new QRegularExpressionValidator(regx, findW);
+    FileNameFind->setValidator(FindWValid);
     QVBoxLayout* findLayout = new QVBoxLayout(GPFind);
     findLayout->addWidget(FileNameFindLabel);
     findLayout->addWidget(FileNameFind);
     findLayout->addWidget(FilePathFindLabel);
     findLayout->addWidget(ChooseDiskPath);
     GPFind->setLayout(findLayout);
-    QFileSystemModel* systemFilesBox = new QFileSystemModel(findW);
+    systemFilesBox = new QFileSystemModel(findW);
     systemFilesBox ->index("C://");
     systemFilesBox->setRootPath(QDir::currentPath());
     ChooseDiskPath->setModel(systemFilesBox);
+    QObject::connect(FileNameFind, &QLineEdit::returnPressed, this, &MainWindow::ViewGetData);
+
+    resultFoundW = new QDialog(this);
+    resultFoundW->setFixedSize(800, 300);
+    resultFoundW->setWindowTitle("Результаты поиска");
+    FilesFound = new QTreeView(resultFoundW);
+    FilesFoundModel = new QFileSystemModel(resultFoundW);
+    FilesFound->setGeometry(20, 20, 760, 250);
+    FilesFound->setColumnWidth(0, 200);
+    FilesFound->header()->setSectionsMovable(false); //Запрещаем пользователю двигать столбцы
+    FilesFound->header()->setSectionResizeMode(QHeaderView::Fixed); //Запрещаем увеличивать размер столбцов
+    FilesFound->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding); // Установить политику размеров для QTreeView
+    FilesFound->setSelectionMode(QAbstractItemView::ExtendedSelection); // Задать режим выбора элементов
+    FilesFound->setFocusPolicy(Qt::NoFocus);
+    FilesFound->sortByColumn(1, Qt::AscendingOrder);
+    QObject::connect(FilesFound, &QTreeView::doubleClicked, this, &MainWindow::fileFoundOpen);
 
     //Окно добавления архива
     addW = new QDialog(this);
     addW->setWindowTitle("Создать архив");
-    addW->setFixedSize(200, 60);
+    addW->setFixedSize(200, 65);
     GPAdd = new QGroupBox(addW);
     GPAdd->setTitle("Введите путь");
-    GPAdd->setGeometry(20, 40, 60, 40);
+    GPAdd->setGeometry(20, 40, 60, 55);
     GPAdd->setObjectName("AddGP");
     GPAdd->setStyleSheet("#AddGP {padding-top: 10px; border: 0.5px solid grey; border-radius: 3px; margin-top: 0px}");
     QRegularExpression rx("^[A-Z]:\\\\[^\\\\/:*?\"<>|]+(\\\\.+)*\\\\?$");
@@ -90,7 +113,7 @@ MainWindow::MainWindow(QWidget *parent)
     ArchiveNameEnter = new QLineEdit(GPAdd);
     ArchiveNameEnter->setValidator(validator);
     ArchiveNameEnter->setPlaceholderText("C:\\Users\\Username\\ArchiveName.estm");
-    ArchiveNameEnter->setGeometry(4, 15, 170, 20);
+    ArchiveNameEnter->setGeometry(4, 20, 170, 20);
     ArchiveNameEnter->setStyleSheet(" border: 0px;");
     QVBoxLayout* addLayout = new QVBoxLayout(addW);
     addLayout->addWidget(GPAdd);
@@ -99,18 +122,18 @@ MainWindow::MainWindow(QWidget *parent)
     //Окно извлечения архива
     extractW = new QDialog(this);
     extractW->setWindowTitle("Извлечь архив");
-    extractW->setFixedSize(200, 60);
+    extractW->setFixedSize(200, 65);
     GPExtract = new QGroupBox(extractW);
     GPExtract->setTitle("Введите путь");
-    GPExtract->setGeometry(20, 40, 60, 40);
+    GPExtract->setGeometry(20, 40, 65, 55);
     GPExtract->setObjectName("AddGP");
     GPExtract->setStyleSheet("#AddGP {padding-top: 10px; border: 0.5px solid grey; border-radius: 3px; margin-top: 0px}");
     QRegularExpression rxExtact("^[A-Z]:\\\\[^\\\\/:*?.\"<>|]+(\\\\.[^.]+)*\\\\?$");
     QValidator *validExtract = new QRegularExpressionValidator(rxExtact, this);
     ExtractFolderEnter= new QLineEdit(GPExtract);
     ExtractFolderEnter->setValidator(validExtract);
-    ExtractFolderEnter->setPlaceholderText("C:\\Users\\Username\\");
-    ExtractFolderEnter->setGeometry(4, 15, 170, 20);
+    ExtractFolderEnter->setPlaceholderText("C:\\Folder\\");
+    ExtractFolderEnter->setGeometry(4, 20, 170, 20);
     ExtractFolderEnter->setStyleSheet(" border: 0px;");
     QVBoxLayout* ExtractLayout = new QVBoxLayout(extractW);
     ExtractLayout->addWidget(GPExtract);
@@ -138,13 +161,13 @@ MainWindow::MainWindow(QWidget *parent)
     fileView->header()->setSectionResizeMode(QHeaderView::Fixed); //Запрещаем увеличивать размер столбцов
     fileView->setRootIndex(systemFiles->index("C://"));
     fileView->setGeometry(30,125,850,400);
-    fileView->setSortingEnabled(true);
     fileView->setIndentation(20);                //Отступ
     fileView->setColumnWidth(0, 400); // Установить ширину колонки для отображения полных названий файлов
     fileView->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding); // Установить политику размеров для QTreeView
     fileView->setSelectionMode(QAbstractItemView::ExtendedSelection); // Задать режим выбора элементов
     fileView->setFocusPolicy(Qt::NoFocus);
     fileView->sortByColumn(1, Qt::AscendingOrder);
+
     QObject::connect(fileView->selectionModel(), &QItemSelectionModel::selectionChanged, [&](const QItemSelection &selected, const QItemSelection &deselected) //Реализуем лямбда функцию для получения выбранных элементов в QTreeView(fileView)
                      {
                          if (!deselected.empty())
@@ -188,7 +211,7 @@ void MainWindow::addGetArchiveName() //Получаем имя архива от
 {
     ArchiveName = ArchiveNameEnter->text();
     QFileInfo suffArchAddCh(ArchiveName);
-    if (suffArchAddCh.suffix()!= "estm")
+    if (suffArchAddCh.suffix()!= "zip")
     {
         QMessageBox::warning(this, "Предупреждение", "Введите корректное расширение архива!");
         return;
@@ -197,108 +220,11 @@ void MainWindow::addGetArchiveName() //Получаем имя архива от
     addW->close();
 }
 
-std::vector <unsigned char> compresspath(const std::string& pathToFile) //сжатие пути до файла
+void MainWindow::extractArchivePlace() //Получение места для разархивации архива
 {
-    uLongf maxCompressedSize = compressBound(pathToFile.length());
-    std::vector<unsigned char> compressed(maxCompressedSize); //сжатая строка
-    uLongf compressedSize = maxCompressedSize;
 
-    int compressionLevel = Z_DEFAULT_COMPRESSION;
-    int result = compress2((Bytef*)compressed.data(), &compressedSize, (const Bytef*)pathToFile.data(), pathToFile.length(), compressionLevel);
-
-    if (result != Z_OK) {
-        throw std::runtime_error("Failed to compress string");
-    }
-
-    compressed.resize(compressedSize);
-    return compressed;
-}
-
-std::vector<unsigned char> compressdata(const std::vector<unsigned char>& inputData)
-{
-    z_stream stream;
-    stream.zalloc = Z_NULL;
-    stream.zfree = Z_NULL;
-    stream.opaque = Z_NULL;
-    stream.avail_in = inputData.size();
-    stream.next_in = const_cast<Bytef*>(inputData.data());
-
-    deflateInit(&stream, Z_DEFAULT_COMPRESSION);
-
-    std::vector<unsigned char> output;
-    unsigned char buffer[16384];
-    do {
-        stream.avail_out = sizeof(buffer);
-        stream.next_out = buffer;
-
-        int result = deflate(&stream, Z_FINISH);
-        if (result == Z_STREAM_ERROR)
-        {
-            deflateEnd(&stream);
-            throw std::runtime_error("Failed to compress data");
-        }
-
-        int have = sizeof(buffer) - stream.avail_out;
-        output.insert(output.end(), buffer, buffer + have);
-    } while (stream.avail_out == 0);
-
-    deflateEnd(&stream);
-
-    return output;
-}
-
-std::vector<unsigned char> decompressdata(const std::vector<unsigned char>& inputData) //Разархивирование данных
-{
-    z_stream stream;
-    stream.zalloc = Z_NULL;
-    stream.zfree = Z_NULL;
-    stream.opaque = Z_NULL;
-    stream.avail_in =  inputData.size();
-    stream.next_in = const_cast<Bytef*>(inputData.data());
-
-    if (inflateInit(&stream) != Z_OK)
-    {
-        throw std::runtime_error("Failed to initialize decompression stream");
-    }
-
-    std::vector<unsigned char> output;
-    unsigned char buffer[16384];
-    int ret;
-    do {
-        stream.avail_out = sizeof(buffer);
-        stream.next_out = buffer;
-
-        ret = inflate(&stream, Z_NO_FLUSH);
-
-        if (ret < 0)
-        {
-            inflateEnd(&stream);
-            throw std::runtime_error("Failed to decompress data");
-        }
-
-        int have = sizeof(buffer) - stream.avail_out;
-        output.insert(output.end(), buffer, buffer + have);
-    } while (ret != Z_STREAM_END);
-
-    inflateEnd(&stream);
-
-    return output;
-}
-void create_file_with_directories(QString& path, std::vector<unsigned char>& dataApart) //Воссоздание директории после разархивации
-{
-    QDir dir;
-
-    const QString finalPath (ExtractPlace + path);
-    QFileInfo finf(finalPath);
-
-    dir.mkpath(finf.path());
-    std::string pathToCreateFile = finf.absoluteFilePath().toStdString();
-    std::fstream fCreate(pathToCreateFile, std::ios::out);
-    fCreate.write(reinterpret_cast<const char*>(dataApart.data()), dataApart.size());
-}
-void MainWindow::extractArchivePlace()
-{
     ExtractPlace = ExtractFolderEnter->text();
+
     ExtractFolderEnter->clear();
     extractW->close();
 }
@@ -311,73 +237,118 @@ void MainWindow::ExtractButtonClick() //Разархивация
     }
     extractW->exec();
     GPExtract->show();
+    //Проверка, что пользователь просто открыл окно для разархивирования, ничего не ввёл, и закрыл его
+    try
+    {
+        if (extractW->close() && ExtractPlace.isEmpty())
+        {
+            throw 0 ;
+        }
+
+    }
+    catch (int code)
+    {
+        if (code == 0)
+        {
+            extractW->close();
+            ExtractFolderEnter->clear();
+            return;
+        }
+
+    }
+
     QString extension;
+    struct zip* archive;
     for (QString str: FileListAdd) //Пробегаемся по каждому архиву, который выбрали
     {
         QFileInfo f(str);
         extension = f.suffix().toLower();
-        if(extension.isEmpty() || extension!="estm") //Валидация расширения архива
+        if(extension.isEmpty() || extension!="zip") //Валидация расширения архива
         {
             QMessageBox::warning(this, "Предупреждение", "Вы выбрали папку или файл, который имеет расширение, отличное от поддерживаемого архиватором!");
             return;
         }
         else
         {
-            std::fstream readArchive(QFile::encodeName(str).toStdString(), std::ios::binary | std::ios::in);
-            if (!readArchive.is_open())
-           {
-               qDebug() << "File isn't opened";
-           }
-             std::vector<unsigned char> compressedData;
-            while (!readArchive.eof())
+            std::filesystem::path archivePathUnzip(str.toUtf8().constData());
+            archive = zip_open(archivePathUnzip.string().c_str(), 0, NULL);
+            if (!archive)
             {
-                std::string line;
-                std::getline(readArchive, line);
-                for (char c : line)
+                return;
+            }
+            struct zip_stat stat;
+            for (int i = 0; i < zip_get_num_entries(archive, 0); ++i)
+            {
+                // Получить информацию о файле
+                if (zip_stat_index(archive, i, 0, &stat) != 0)
                 {
-                    compressedData.push_back(static_cast<unsigned char>(c));
+                    // Обработать ошибку
+                    continue;
                 }
 
+                // Открыть файл в архиве
+                struct zip_file *file = zip_fopen_index(archive, i, 0);
+                if (!file)
+                {
+                    // Обработать ошибку
+                    continue;
+                }
 
-                std::vector<unsigned char> decompressData = decompressdata(compressedData);
-                std::ofstream outFile("D:/testCourseWork/decoded_data.txt", std::ios::out | std::ios::binary);
-                outFile.write(reinterpret_cast<const char*>(decompressData.data()), decompressData.size());
-                outFile.close();
+                // Получить путь к файлу назначения
+                QString DirectoryPath ="";
+                QString FilePath = "";
+                QFileInfo fileInfo(QString::fromUtf8(stat.name));
+                QString FileinfoPath = fileInfo.path(); //Получаем имя файла
+                if (FileinfoPath == '.')
+                {
+                    FileinfoPath =fileInfo.fileName();
+                    DirectoryPath = ExtractPlace + '\\';
+                    FilePath = ExtractPlace + '\\'+FileinfoPath;
+                }
+                else
+                {
+                    DirectoryPath = ExtractPlace + '\\';
+                    FilePath =  ExtractPlace + '\\' + fileInfo.fileName();
+                }
+
+                // Заменить все разделители на разделитель, соответствующий текущей операционной системе
+                FilePath.replace('/', QDir::separator());
+                FilePath.replace('\\', QDir::separator());
+
+                DirectoryPath.replace('/', QDir::separator());
+                DirectoryPath.replace('\\', QDir::separator());
+                // Создать каталоги, если необходимо
+
+                    QDir dir;
+                    dir.mkpath(DirectoryPath); //доделать проверку на то, существует ли директория
+                // Открыть файл назначения
+                QFile destFile(FilePath);
+                if (!destFile.open(QIODevice::WriteOnly))
+                {
+                    qDebug() << destFile.errorString();
+                    // Обработать ошибку
+                    zip_fclose(file);
+                    continue;
+                }
+                char buffer[4096];
+                int bytesRead;
+                while ((bytesRead = zip_fread(file, buffer, sizeof(buffer))) > 0)
+                {
+                    destFile.write(buffer, bytesRead);
+                }
+                // Закрыть файл назначения
+                destFile.close();
+
+                // Закрыть файл в архиве
+                zip_fclose(file);
             }
+
+            // Закрыть архив
+            zip_close(archive);
         }
     }
     ExtractPlace.clear();
 
-}
-
-bool isTextFile(const QString& pathToFile) //Проверка на то, является ли файл текстовым
-{
-    const int bufferSize = 1024;    //Суть в том, что мы считывает буффер размером 1024
-    QFile f (pathToFile);
-    if (!f.open(QIODevice::ReadOnly))
-    {
-     return false;
-    }
-    QByteArray fBuffer = f.read(bufferSize); // Считываем bufferSize байт
-    f.close();
-    if (fBuffer.isEmpty())
-    {
-        return false;
-    }
-    else
-    {
-        for (char c : fBuffer)  // Делаем простую проверку, если я могу считать символы с файла и они входят в таблицу ASCII, тогда возвращаем true - файл текстовый.
-        {
-            if (!QChar(c).isPrint())
-            {
-                return false;
-            }
-            else
-            {
-                return true;
-            }
-        }
-    }
 }
 
 void GetAllFilesPath(const QString& index) //Рекурсивная обработка всех  для последующей обработки
@@ -387,7 +358,7 @@ void GetAllFilesPath(const QString& index) //Рекурсивная обрабо
     QFileInfoList folderContent = FolderPath.entryInfoList();
     for (const QFileInfo& fileinfo : folderContent)
     {
-        if (fileinfo.isFile() && isTextFile(fileinfo.absoluteFilePath()))
+        if (fileinfo.isFile())
         {
            fileList.append(fileinfo);//Считывание всех элементов, которые находятся в выбранной папке
         }
@@ -397,75 +368,216 @@ void GetAllFilesPath(const QString& index) //Рекурсивная обрабо
         }
     }
 }
-void MainWindow::AddbuttonClick() //Обработка добавления файлов в архив
+void MainWindow::AddbuttonClick() //Создание архива
 {
-
     if (FileListAdd.empty())
     {
         QMessageBox::warning(this, "Предупреждение", "Выберете файл или папку для добавления!");
         return;
     }
-    QString buffer=""; //храним информацию
-    QString pathToFile= "";
-    char ch;
+    struct zip* archive;
     addW->exec();
     GPAdd->show();
     if (ArchiveName.isEmpty())
     {
         return;
     }
-        foreach (QString index, FileListAdd)
+
+    std::string archivePathStr = ArchiveName.toUtf8().constData();
+    std::filesystem::path archivePath(archivePathStr);
+
+    foreach (QString index, FileListAdd)
+    {
+        QFileInfo FileType(index); //Получаем инфу о том, что выбрано (файл или папка)
+        if (FileType.isFile() )
         {
-            QFileInfo FileType(index); //Получаем инфу о том, что выбрано (файл или папка)
-            if (FileType.isFile() && isTextFile(FileType.absoluteFilePath()))
-            {
-                fileList.append(FileType);
-            }
-            else
-            {
-                GetAllFilesPath(index);
-            }
+            fileList.append(FileType);
         }
-        foreach(const QFileInfo i, fileList)  //Обработка каждого файла
+        else
         {
-            QString AddPathFile =i.absoluteFilePath();
-            std::ifstream infile;
-            infile.open(QFile::encodeName(AddPathFile).toStdString(), std::ios::in );
-            if (!infile.is_open())
+            GetAllFilesPath(index);
+        }
+    }
+
+    foreach(const QFileInfo i, fileList)  //Обработка каждого файла
+    {
+        archive = zip_open(archivePath.string().c_str(), ZIP_CREATE | ZIP_CHECKCONS, nullptr);
+        QString AddPathFile = i.absoluteFilePath();
+        QFile infile(AddPathFile);
+
+        if (!infile.open(QIODevice::ReadOnly ))
+        {
+            FileListAdd.clear();
+            zip_close(archive);
+            return;
+        }
+        else
+        {
+            QByteArray byteArray = infile.readAll();
+            std::string filePath = AddPathFile.toUtf8().constData();
+            std::filesystem::path flsPath(filePath);
+            std::vector<char> data(byteArray.begin(), byteArray.end());
+            infile.close();
+
+            zip_source_t *source = zip_source_buffer(archive, data.data(), data.size(), 0);
+            if (source == nullptr)
             {
-                FileListAdd.clear();
+                QMessageBox::critical(this, "Ошибка", "Произошла ошибка записи данных в архив!");
+                zip_close(archive);
                 return;
             }
-            else
-            {
-                std::vector <unsigned char> inputData((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
-                infile.close();
-                pathToFile+='\0';
-                pathToFile = AddPathFile.remove(0, AddPathFile.indexOf('/')); //Получаем путь до файла без диска ( нужен для воссоздания исходной директории)
-                std::vector<unsigned char> compressedPath = compresspath(QFile::encodeName(pathToFile).toStdString());
-                std::vector  <unsigned char> compressedData =compressdata(inputData);
-                std::ofstream writeToArchive(QFile::encodeName(ArchiveName).toStdString(), std::ios::binary | std::ios::out | std::ios::app);
-                writeToArchive.write(reinterpret_cast<const char*>(compressedData.data()), compressedData.size());
-                writeToArchive.write(reinterpret_cast<const char*>(compressedPath.data()), compressedPath.size());
-                writeToArchive.close();
-                pathToFile.clear();
+
+            zip_file_add(archive, flsPath.string().c_str(), source, ZIP_FL_ENC_GUESS | ZIP_FL_ENC_RAW);
+            zip_close(archive);
         }
-            ArchiveName.clear();
-        }
+    }
+
+
+    ArchiveName.clear();
 }
 
-void MainWindow::ViewbuttonClick()
+void MainWindow::ViewGetData() //Получение имени файла для поиска
+{
+   //Проверка на то, что пользователь открыл окно поиска,  ничего не ввёл и закрыл его;
+    try
+    {
+        NameOfFileString = FileNameFind->text();
+        if (NameOfFileString.isEmpty())
+        {
+            throw 0;
+        }
+        QFileInfo inf(NameOfFileString);
+        if (inf.suffix().isEmpty())
+        {
+            throw 1;
+        }
+    }
+    catch(int code)
+    {
+        if (code == 0)
+        {
+            QMessageBox::warning(this, "Предупреждение", "Введите имя файла для поиска!");
+            return;
+        }
+        if (code == 1)
+        {
+            QMessageBox::warning(this, "Предупреждение", "Введите расширение файла!");
+            NameOfFileString.clear();
+            return;
+        }
+    }
+
+    FileNameFind->clear();
+    findW->close();
+}
+
+void MainWindow::fileFoundOpen(const QModelIndex indx)
+{
+    QDesktopServices::openUrl(QUrl::fromLocalFile(FilesFoundModel->filePath(indx)));
+}
+
+auto compareFiles = [](const QFileInfo& a, const QFileInfo& b) //Компаратор
+{
+    return a.fileName() < b.fileName();
+};
+
+QList<QFileInfo>MainWindow::searchFiles(const QString &diskName, const QString &fileName) //Поиск файлов
+{
+    QList<QFileInfo> fileListView;
+    QFileInfo ext(fileName);
+    QDirIterator it(diskName, QDir::NoDotAndDotDot | QDir::Files | QDir::Dirs, QDirIterator::Subdirectories);
+    while (it.hasNext())
+    {
+        it.next();
+        QFileInfo fileInfo = it.fileInfo();
+        if (fileInfo.isFile() && "*" + fileInfo.fileName() + "*" == "*" + ext.fileName() + "*")
+        {
+            fileListView.append(fileInfo);
+        }
+    }
+
+    std::sort(fileListView.begin(), fileListView.end(), compareFiles);
+
+    return fileListView;
+}
+
+void expandToRoot(const QModelIndex &index, QTreeView *treeView) //Открытие дерева после поиска файлов
+{
+    if (!index.isValid())
+    {
+        return;
+    }
+
+    expandToRoot(index.parent(), treeView);
+    treeView->setExpanded(index, true);
+}
+void MainWindow::onSearchFinished() //Отображение результатов поиска
+{
+    QList<QFileInfo> fileListView = future.result();
+    QFileSystemModel* mdl = new QFileSystemModel(resultFoundW); // Создаем новую модель
+    if (fileListView.isEmpty())
+    {
+
+        FilesFound->setModel(mdl);
+        FilesFound->setColumnWidth(0, 200);
+        resultFoundW->exec();
+        return;
+    }
+    // Очистка дерева
+    delete FilesFoundModel;
+    FilesFoundModel = new QFileSystemModel(resultFoundW);
+    FilesFound->setModel(FilesFoundModel);
+    for (const QFileInfo &fileInfo : fileListView)
+    {
+        if (fileInfo.isFile())
+        {
+            QString filePath = fileInfo.absoluteFilePath();
+            QModelIndex index = FilesFoundModel->index(filePath);
+            FilesFoundModel->fetchMore(index); // Загрузить дочерние элементы
+            expandToRoot(index.parent(), FilesFound);
+        }
+    }
+
+    // Очищаем результаты поиска
+    fileListView.clear();
+
+    FilesFound->setColumnWidth(0, 200);
+    resultFoundW->exec();
+}
+void MainWindow::ViewbuttonClick() //Обработка нажатия на кнопку поиска
 {
     findW->exec();
     GPFind->show();
+    try
+    {
+        if (findW->close() && NameOfFileString.isEmpty())
+        {
+            throw 1;
+        }
+    }
+    catch(int code)
+    {
+        if (code == 1)
+        {
+            findW->close();
+            return;
+        }
+    }
 
+    FilesFound->setModel(FilesFoundModel);
+    int index = ChooseDiskPath->currentIndex(); //выбранный индекс в QComboBox
+    QModelIndex sysModelIndex = ChooseDiskPath->model()->index(index, 0); //Получаем индекс в модели QComboBox (QSystemModel)
+    QVariant DiskInfo = ChooseDiskPath->model()->data(sysModelIndex, QFileSystemModel::FilePathRole); //Получаем информацию о файле по пути
+    DiskName = DiskInfo.toString(); //Получаем путь до файла
 
-        NameOfFileString = FileNameFind->text();
-        //05.04.24 Доделать обработку события (нажатие Enter) для получения текста из QLineEdit
-
+     futureWatcher = new  QFutureWatcher<QList<QFileInfo>>(findW);
+     future = QtConcurrent::run(&MainWindow::searchFiles, this, DiskName, NameOfFileString);
+     futureWatcher->setFuture(future);
+     connect(futureWatcher, &QFutureWatcher<QList<QFileInfo>>::finished, this, &MainWindow::onSearchFinished);
 }
-//Динамическое изменение списка файлов в зависимости от выбранного диска
-void MainWindow::diskPathIndexChange()
+
+
+void MainWindow::diskPathIndexChange()  //Динамическое изменение списка файлов в зависимости от выбранного диска
 {
     QList <QFileInfo> mainDrives = QDir::drives();
     fileView->setRootIndex(systemFiles->index(mainDrives.at(diskPath->currentIndex()).absoluteFilePath()));
@@ -474,10 +586,9 @@ void MainWindow::diskPathIndexChange()
 void MainWindow::fileViewOpen(const QModelIndex index)
 {
     QDesktopServices::openUrl(QUrl::fromLocalFile(systemFiles->filePath(index)));
-
 }
 
-void MainWindow::deleteButtonClick()
+void MainWindow::deleteButtonClick() //Удаление файла
 {
     QString filesPath="";
 
@@ -505,16 +616,9 @@ void MainWindow::deleteButtonClick()
                     dir.removeRecursively();
                 }
             }
-        QMessageBox::information(this, "Success", "Файлы успешно удалены!");
+        QMessageBox::information(this, "Успешно", "Файлы успешно удалены!");
     }
 
 }
 
-/* 24.03.24 - Заметка
- * Cделать локаль - в меню вывода списка файлово пофиксить байтов и тп, на английские названия
- * Поработать с восходящим путём по диску (файл с названием "..")
- *
- *
- *
- *
-*/
+

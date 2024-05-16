@@ -19,6 +19,9 @@ FORMS += \
     mainwindow.ui
 
 LIBS += -lz
+INCLUDEPATH += D:\vcpkg\vcpkg-master\vcpkg-master\installed\x64-windows\include
+LIBS += -L D:\vcpkg\vcpkg-master\vcpkg-master\installed\x64-windows\bin -lzip
+
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
@@ -26,3 +29,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 RESOURCES += \
     resources.qrc
+
+win32:RC_FILE = AppIcon.rc

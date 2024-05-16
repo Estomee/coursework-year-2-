@@ -32,7 +32,13 @@
 #include <string>
 #include <iostream>
 #include <stack>
-#include <zlib.h>
+#include <zip.h>
+#include <algorithm>
+#include <QQueue>
+#include <QtConcurrent/QtConcurrent>
+#include <QFuture>
+#include <QStyleFactory>
+#include <QFileIconProvider>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -47,6 +53,7 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
 
 private:
     //Кнопки Hud'а
@@ -68,8 +75,15 @@ private:
     QLineEdit* FileNameFind;
     QComboBox* ChooseDiskPath;
     QGroupBox* GPFind;
-    QString NameOfFileString;
+    QFileSystemModel* systemFilesBox;
+    QDialog* resultFoundW;
+    QTreeView* FilesFound;
 
+    QFileSystemModel* FilesFoundModel;
+    QFuture<QList<QFileInfo>> future;
+    QFutureWatcher<QList<QFileInfo>>* futureWatcher;
+    QModelIndex indx;
+    QString DiskName;
     //Виджеты к окну add
     QDialog* addW;
     QLineEdit* ArchiveNameEnter;
@@ -83,8 +97,8 @@ private:
     //Список для хранения списка выделенных файлов для архивирования
     QList<QString> FileListAdd;
 
-
-
+public slots:
+   QList<QFileInfo> searchFiles(const QString& diskName, const QString& nameOfFileString);
 private slots:
     void AddbuttonClick();
     void ViewbuttonClick();
@@ -94,14 +108,12 @@ private slots:
     void addGetArchiveName();
     void ExtractButtonClick();
     void extractArchivePlace();
+    void ViewGetData();
+    void fileFoundOpen(const QModelIndex indx);
+    void onSearchFinished();
 };
-void ReadData(std::string& pathToFile, std::string& buffer); //Функция чтения данных
-
-void makingHuffmanTree(std::string& pathToFile, std::string& buffer); //Создание и обработка дерева Хаффмана
-
-bool isTextFile(const QString& pathToFile); //Проверка на тип файла (текстовый или отличный от него)
 
 void GetAllFilesPath(const QString& index); //Функция получения путей выделенных файлов
-
+void expandToRoot(const QModelIndex &index, QTreeView *treeView);//Открытие дерева после поиска файлов
 
 #endif // MAINWINDOW_H
